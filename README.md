@@ -13,16 +13,17 @@ This project contains a React application and a simple Node.js backend. The back
 
    *(Network access is required to download packages.)*
 
-2. Copy `.env.example` to `.env` and adjust credentials to match your MySQL instance.
+2. Copy `.env.example` to `.env` and adjust credentials to match your MySQL instance. You can also set the initial administrator credentials here using `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
-3. Create tables for demo data and users:
+3. Create tables for demo data and users (the `users` table now includes an `is_admin` column to flag administrators):
 
    ```sql
    CREATE TABLE users (
        id INT AUTO_INCREMENT PRIMARY KEY,
        name VARCHAR(255) NOT NULL,
        email VARCHAR(255) NOT NULL UNIQUE,
-       password VARCHAR(255) NOT NULL
+       password VARCHAR(255) NOT NULL,
+       is_admin BOOLEAN DEFAULT FALSE
    );
 
    CREATE TABLE items (
@@ -41,10 +42,13 @@ This project contains a React application and a simple Node.js backend. The back
 
 ### User API
 
-The backend now exposes simple authentication endpoints:
+The backend now exposes simple authentication endpoints. A default administrator account is created on first run using the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables (defaults are `admin@example.com`/`admin123`).
+
+#### Endpoints
 
 * `POST /api/users/register` – create a user. Body fields: `name`, `email`, `password`.
 * `POST /api/users/login` – obtain a JWT token. Body fields: `email`, `password`.
+* `POST /api/admin/login` – login as administrator. Body fields: `email`, `password`.
 * `GET /api/users/:id` – retrieve a user profile (requires `Authorization: Bearer <token>`).
 
 ## React usage
