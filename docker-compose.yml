@@ -24,5 +24,16 @@ services:
       - "3001:3001"
     depends_on:
       - db
+  frontend:
+    image: node:18
+    container_name: charisma-frontend
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: npm run dev -- --host 0.0.0.0 --port 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 volumes:
   db-data:
