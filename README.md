@@ -2,6 +2,10 @@
 
 This project contains a React application and a simple Node.js backend. The backend stores data in a MySQL database and exposes REST APIs documented with Swagger. The React interface demonstrates how to consume these APIs.
 
+## Quick setup
+
+Run `npm run setup` from the project root to install both frontend and backend dependencies in one step. This installs packages in the `backend` folder as well.
+
 ## Backend setup
 
 1. Navigate to the `backend` directory and install dependencies:
@@ -55,7 +59,7 @@ The backend now exposes simple authentication endpoints. A default administrator
 
 The React `AboutPage` now includes a small example component (`DataList`) that fetches and adds items using the backend API.
 
-Install the frontend dependencies in the project root and start the Vite dev server. The configuration proxies any `/api` calls to the backend on port `3001` so that registration and login work during development.
+Install the frontend dependencies (and ensure the backend ones are installed via `npm run setup`) in the project root and start the Vite dev server. The configuration proxies any `/api` calls to the backend on port `3001` so that registration and login work during development.
 
 ```bash
 npm install

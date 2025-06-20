@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup": "npm install && cd backend && npm install"
   },
   "dependencies": {
     "react": "^18.2.0",
