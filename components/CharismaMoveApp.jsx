@@ -4,6 +4,9 @@ import Footer from './Footer';
 import HomePage from './HomePage';
 const SearchResultsPage = lazy(() => import('./SearchResultsPage'));
 const AboutPage = lazy(() => import('./AboutPage'));
+const LoginPage = lazy(() => import('./LoginPage'));
+const RegisterPage = lazy(() => import('./RegisterPage'));
+const ProfilePage = lazy(() => import('./ProfilePage'));
 import { useApp } from './context.jsx';
 
 const CharismaMoveApp = () => {
@@ -17,6 +20,12 @@ const CharismaMoveApp = () => {
         return <SearchResultsPage />;
       case 'about':
         return <AboutPage />;
+      case 'login':
+        return <LoginPage />;
+      case 'register':
+        return <RegisterPage />;
+      case 'profile':
+        return <ProfilePage />;
       default:
         return <HomePage />;
     }

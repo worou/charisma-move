@@ -3,7 +3,7 @@ import { Car, Home, Search, BookOpen, Heart, Menu, X } from 'lucide-react';
 import { useApp } from './context.jsx';
 
 const Navigation = () => {
-  const { currentPage, setCurrentPage } = useApp();
+  const { currentPage, setCurrentPage, isAuthenticated } = useApp();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const menuItems = [
@@ -47,15 +47,23 @@ const Navigation = () => {
 
           {/* Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <button onClick={() => setCurrentPage('login')} className="text-purple-600 hover:text-purple-800 font-medium">
-              Se connecter
-            </button>
-            <button
-              onClick={() => setCurrentPage('register')}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full font-medium hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105"
-            >
-              S'inscrire
-            </button>
+            {isAuthenticated ? (
+              <button onClick={() => setCurrentPage('profile')} className="text-purple-600 hover:text-purple-800 font-medium">
+                Mon profil
+              </button>
+            ) : (
+              <>
+                <button onClick={() => setCurrentPage('login')} className="text-purple-600 hover:text-purple-800 font-medium">
+                  Se connecter
+                </button>
+                <button
+                  onClick={() => setCurrentPage('register')}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full font-medium hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105"
+                >
+                  S'inscrire
+                </button>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -83,6 +91,38 @@ const Navigation = () => {
                   <span className="ml-2">{item.label}</span>
                 </button>
               ))}
+              {isAuthenticated ? (
+                <button
+                  onClick={() => {
+                    setCurrentPage('profile');
+                    setIsMenuOpen(false);
+                  }}
+                  className="flex items-center w-full px-3 py-2 text-base font-medium text-gray-900 hover:text-purple-600"
+                >
+                  Mon profil
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setCurrentPage('login');
+                      setIsMenuOpen(false);
+                    }}
+                    className="flex items-center w-full px-3 py-2 text-base font-medium text-gray-900 hover:text-purple-600"
+                  >
+                    Se connecter
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCurrentPage('register');
+                      setIsMenuOpen(false);
+                    }}
+                    className="flex items-center w-full px-3 py-2 text-base font-medium text-gray-900 hover:text-purple-600"
+                  >
+                    S'inscrire
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
