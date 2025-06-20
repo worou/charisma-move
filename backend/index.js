@@ -23,12 +23,27 @@ async function init() {
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL
+    password VARCHAR(255) NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE
   )`);
   await pool.query(`CREATE TABLE IF NOT EXISTS items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL
   )`);
+
+  // Create a default admin if none exists
+  const [rows] = await pool.query('SELECT COUNT(*) as count FROM users WHERE is_admin = TRUE');
+  if (rows[0].count === 0) {
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const adminName = process.env.ADMIN_NAME || 'Admin';
+    const hash = await bcrypt.hash(adminPassword, 10);
+    await pool.query(
+      'INSERT INTO users (name, email, password, is_admin) VALUES (?, ?, ?, TRUE)',
+      [adminName, adminEmail, hash]
+    );
+    console.log(`Default admin created with email ${adminEmail}`);
+  }
 }
 
 init();
@@ -43,12 +58,12 @@ async function addItem(name) {
   return { id: result.insertId, name };
 }
 
-async function createUser(name, email, password) {
+async function createUser(name, email, password, isAdmin = false) {
   const [result] = await pool.query(
-    'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-    [name, email, password]
+    'INSERT INTO users (name, email, password, is_admin) VALUES (?, ?, ?, ?)',
+    [name, email, password, isAdmin]
   );
-  return { id: result.insertId, name, email };
+  return { id: result.insertId, name, email, is_admin: isAdmin };
 }
 
 async function findUserByEmail(email) {
@@ -57,7 +72,7 @@ async function findUserByEmail(email) {
 }
 
 async function getUserById(id) {
-  const [rows] = await pool.query('SELECT id, name, email FROM users WHERE id = ?', [id]);
+  const [rows] = await pool.query('SELECT id, name, email, is_admin FROM users WHERE id = ?', [id]);
   return rows[0];
 }
 
@@ -121,10 +136,44 @@ app.post('/api/users/login', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || 'secret', {
-      expiresIn: '1h',
+    const token = jwt.sign(
+      { id: user.id, is_admin: user.is_admin },
+      process.env.JWT_SECRET || 'secret',
+      {
+        expiresIn: '1h',
+      }
+    );
+    res.json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email, is_admin: user.is_admin },
     });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/admin/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+  try {
+    const user = await findUserByEmail(email);
+    if (!user || !user.is_admin) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+    const token = jwt.sign(
+      { id: user.id, is_admin: true },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '1h' }
+    );
+    res.json({
+      token,
+      admin: { id: user.id, name: user.name, email: user.email },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
