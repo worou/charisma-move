@@ -12,6 +12,46 @@ import {
 import Toast from './Toast';
 import { useApp } from './context.jsx';
 
+const FEATURES = [
+  {
+    icon: <DollarSign className="w-8 h-8" />,
+    title: "Économique",
+    description: "Partagez les frais de route et voyagez jusqu'à 3x moins cher qu'en train ou en avion."
+  },
+  {
+    icon: <Leaf className="w-8 h-8" />,
+    title: "Écologique",
+    description: "Réduisez votre empreinte carbone en partageant votre véhicule avec d'autres voyageurs."
+  },
+  {
+    icon: <Heart className="w-8 h-8" />,
+    title: "Convivial",
+    description: "Rencontrez de nouvelles personnes et rendez vos trajets plus agréables grâce au covoiturage."
+  },
+  {
+    icon: <Shield className="w-8 h-8" />,
+    title: "Sécurisé",
+    description: "Profils vérifiés, avis des membres et assistance 24h/7j pour voyager en toute sérénité."
+  },
+  {
+    icon: <Smartphone className="w-8 h-8" />,
+    title: "Simple",
+    description: "Réservez en quelques clics sur notre site ou notre application mobile."
+  },
+  {
+    icon: <Globe className="w-8 h-8" />,
+    title: "Partout",
+    description: "Service disponible dans toute la France avec des milliers de trajets quotidiens."
+  }
+];
+
+const STATS = [
+  { number: "50K+", label: "Membres actifs" },
+  { number: "500+", label: "Villes desservies" },
+  { number: "10K", label: "Trajets par mois" },
+  { number: "4.9★", label: "Satisfaction client" }
+];
+
 const HomePage = () => {
   const { setCurrentPage } = useApp();
   const [activeTab, setActiveTab] = useState('search');
@@ -57,45 +97,6 @@ const HomePage = () => {
     }, 1500);
   };
 
-  const features = [
-    {
-      icon: <DollarSign className="w-8 h-8" />,
-      title: "Économique",
-      description: "Partagez les frais de route et voyagez jusqu'à 3x moins cher qu'en train ou en avion."
-    },
-    {
-      icon: <Leaf className="w-8 h-8" />,
-      title: "Écologique",
-      description: "Réduisez votre empreinte carbone en partageant votre véhicule avec d'autres voyageurs."
-    },
-    {
-      icon: <Heart className="w-8 h-8" />,
-      title: "Convivial",
-      description: "Rencontrez de nouvelles personnes et rendez vos trajets plus agréables grâce au covoiturage."
-    },
-    {
-      icon: <Shield className="w-8 h-8" />,
-      title: "Sécurisé",
-      description: "Profils vérifiés, avis des membres et assistance 24h/7j pour voyager en toute sérénité."
-    },
-    {
-      icon: <Smartphone className="w-8 h-8" />,
-      title: "Simple",
-      description: "Réservez en quelques clics sur notre site ou notre application mobile."
-    },
-    {
-      icon: <Globe className="w-8 h-8" />,
-      title: "Partout",
-      description: "Service disponible dans toute la France avec des milliers de trajets quotidiens."
-    }
-  ];
-
-  const stats = [
-    { number: "50K+", label: "Membres actifs" },
-    { number: "500+", label: "Villes desservies" },
-    { number: "10K", label: "Trajets par mois" },
-    { number: "4.9★", label: "Satisfaction client" }
-  ];
 
   return (
     <div>
@@ -300,7 +301,7 @@ const HomePage = () => {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
+            {FEATURES.map((feature, index) => (
               <div
                 key={index}
                 className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-2 group cursor-pointer"
@@ -321,7 +322,7 @@ const HomePage = () => {
       <section className="py-16 bg-gradient-to-r from-purple-600 to-pink-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {stats.map((stat, index) => (
+            {STATS.map((stat, index) => (
               <div key={index} className="transform hover:scale-105 transition-transform cursor-pointer" onClick={() => setCurrentPage('about')}>
                 <div className="text-4xl md:text-5xl font-bold mb-2">{stat.number}</div>
                 <div className="text-purple-100 font-medium">{stat.label}</div>
