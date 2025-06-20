@@ -55,7 +55,12 @@ The backend now exposes simple authentication endpoints. A default administrator
 
 The React `AboutPage` now includes a small example component (`DataList`) that fetches and adds items using the backend API.
 
-Run your favorite React bundler to serve the frontend and ensure requests are proxied to the Node server.
+Install the frontend dependencies in the project root and start the Vite dev server. The configuration proxies any `/api` calls to the backend on port `3001` so that registration and login work during development.
+
+```bash
+npm install
+npm run dev
+```
 
 ## Docker usage
 
