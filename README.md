@@ -46,4 +46,6 @@ You can launch a full development stack with Docker. Ensure Docker and Docker Co
 docker-compose up --build
 ```
 
-This will start a MySQL instance and the backend on port `3001`.
+This will start a MySQL instance and the backend on port `3001`. The frontend
+container installs its dependencies automatically and serves the React app on
+port `3000`.
