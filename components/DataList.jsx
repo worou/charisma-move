@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 
-export default function DataList() {
+function DataList() {
   const [items, setItems] = useState([]);
   const [value, setValue] = useState('');
 
@@ -36,3 +36,5 @@ export default function DataList() {
     </div>
   );
 }
+
+export default memo(DataList);

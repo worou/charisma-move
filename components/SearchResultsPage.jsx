@@ -1,32 +1,32 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { ArrowRight, Star, MapPin, Clock, Users } from 'lucide-react';
 import { useApp } from './context.jsx';
 
+const MOCK_TRIPS = [
+  {
+    id: 1,
+    driver: { name: "Alice Martin", rating: 4.8, reviews: 15, photo: "👩‍🦰" },
+    departure: { city: "Paris", address: "Gare de Lyon", time: "14:00" },
+    arrival: { city: "Lyon", address: "Part-Dieu", time: "18:00" },
+    price: 25,
+    seats: 2,
+    vehicle: "Renault Clio (2020)",
+    instant: true
+  },
+  {
+    id: 2,
+    driver: { name: "Bob Dupont", rating: 4.5, reviews: 8, photo: "👨‍💼" },
+    departure: { city: "Paris", address: "Porte de Versailles", time: "15:30" },
+    arrival: { city: "Lyon", address: "Perrache", time: "19:30" },
+    price: 22,
+    seats: 3,
+    vehicle: "Peugeot 308 (2019)",
+    instant: false
+  }
+];
+
 const SearchResultsPage = () => {
   const { setCurrentPage } = useApp();
-
-  const mockTrips = [
-    {
-      id: 1,
-      driver: { name: "Alice Martin", rating: 4.8, reviews: 15, photo: "👩‍🦰" },
-      departure: { city: "Paris", address: "Gare de Lyon", time: "14:00" },
-      arrival: { city: "Lyon", address: "Part-Dieu", time: "18:00" },
-      price: 25,
-      seats: 2,
-      vehicle: "Renault Clio (2020)",
-      instant: true
-    },
-    {
-      id: 2,
-      driver: { name: "Bob Dupont", rating: 4.5, reviews: 8, photo: "👨‍💼" },
-      departure: { city: "Paris", address: "Porte de Versailles", time: "15:30" },
-      arrival: { city: "Lyon", address: "Perrache", time: "19:30" },
-      price: 22,
-      seats: 3,
-      vehicle: "Peugeot 308 (2019)",
-      instant: false
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -37,11 +37,11 @@ const SearchResultsPage = () => {
             Retour à la recherche
           </button>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Trajets disponibles</h1>
-          <p className="text-gray-600">Paris → Lyon • {mockTrips.length} trajet(s) trouvé(s)</p>
+          <p className="text-gray-600">Paris → Lyon • {MOCK_TRIPS.length} trajet(s) trouvé(s)</p>
         </div>
 
         <div className="space-y-6">
-          {mockTrips.map((trip) => (
+          {MOCK_TRIPS.map((trip) => (
             <div key={trip.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
               <div className="flex flex-col md:flex-row md:items-center justify-between">
                 <div className="flex-1">
@@ -101,4 +101,4 @@ const SearchResultsPage = () => {
   );
 };
 
-export default SearchResultsPage;
+export default memo(SearchResultsPage);

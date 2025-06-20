@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import HomePage from './HomePage';
-import SearchResultsPage from './SearchResultsPage';
-import AboutPage from './AboutPage';
+const SearchResultsPage = lazy(() => import('./SearchResultsPage'));
+const AboutPage = lazy(() => import('./AboutPage'));
 import { useApp } from './context.jsx';
 
 const CharismaMoveApp = () => {
@@ -25,7 +25,11 @@ const CharismaMoveApp = () => {
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
-      <main>{renderPage()}</main>
+      <main>
+        <Suspense fallback={<div className="p-8">Chargement...</div>}>
+          {renderPage()}
+        </Suspense>
+      </main>
       <Footer />
     </div>
   );
