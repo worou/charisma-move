@@ -15,9 +15,16 @@ This project contains a React application and a simple Node.js backend. The back
 
 2. Copy `.env.example` to `.env` and adjust credentials to match your MySQL instance.
 
-3. Create a table for demo data:
+3. Create tables for demo data and users:
 
    ```sql
+   CREATE TABLE users (
+       id INT AUTO_INCREMENT PRIMARY KEY,
+       name VARCHAR(255) NOT NULL,
+       email VARCHAR(255) NOT NULL UNIQUE,
+       password VARCHAR(255) NOT NULL
+   );
+
    CREATE TABLE items (
        id INT AUTO_INCREMENT PRIMARY KEY,
        name VARCHAR(255) NOT NULL
@@ -31,6 +38,14 @@ This project contains a React application and a simple Node.js backend. The back
    ```
 
    The API will be available on `http://localhost:3001` and documentation on `http://localhost:3001/api-docs`.
+
+### User API
+
+The backend now exposes simple authentication endpoints:
+
+* `POST /api/users/register` – create a user. Body fields: `name`, `email`, `password`.
+* `POST /api/users/login` – obtain a JWT token. Body fields: `email`, `password`.
+* `GET /api/users/:id` – retrieve a user profile (requires `Authorization: Bearer <token>`).
 
 ## React usage
 

@@ -14,6 +14,7 @@ export const AppProvider = ({ children }) => {
   const [currentPage, setCurrentPage] = useState('home');
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,6 +25,8 @@ export const AppProvider = ({ children }) => {
     setUser,
     isAuthenticated,
     setIsAuthenticated,
+    token,
+    setToken,
     searchResults,
     setSearchResults,
     isLoading,
