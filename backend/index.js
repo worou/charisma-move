@@ -31,6 +31,19 @@ async function init() {
     name VARCHAR(255) NOT NULL
   )`);
 
+  // Add is_admin column for existing installations
+  const [cols] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'is_admin'`
+  );
+  if (cols.length === 0) {
+    await pool.query(
+      'ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE'
+    );
+  }
+
   // Create a default admin if none exists
   const [rows] = await pool.query('SELECT COUNT(*) as count FROM users WHERE is_admin = TRUE');
   if (rows[0].count === 0) {
