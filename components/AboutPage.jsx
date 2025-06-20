@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowRight, Mail, Phone } from 'lucide-react';
 import { useApp } from './context';
+import DataList from './DataList';
 
 const AboutPage = () => {
   const { setCurrentPage } = useApp();
@@ -59,6 +60,11 @@ const AboutPage = () => {
                 <span className="text-purple-600">+33 1 23 45 67 89</span>
               </div>
             </div>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Données</h2>
+            <DataList />
           </section>
         </div>
       </div>
