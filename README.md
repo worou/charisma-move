@@ -87,3 +87,11 @@ If the login form displays **"Email ou mot de passe invalide"** even though you
 are using the correct credentials, verify that the backend server is running on
 port `3001`. A network or server error will result in the same message on the
 frontend.
+
+If `npm start` prints an **"EADDRINUSE"** error, another process is already
+using port `3001`. Stop the existing process or run the backend on a different
+port:
+
+```bash
+PORT=3002 npm start
+```
