@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Menu, X, Home, Users, Settings } from 'lucide-react';
-import { useAdmin } from './AdminContext';
+import { useAdmin } from './AdminContext.jsx';
 
 const AdminNavigation = () => {
   const { currentPage, setCurrentPage } = useAdmin();

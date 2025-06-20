@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Car, Home, Search, BookOpen, Heart, Menu, X } from 'lucide-react';
-import { useApp } from './context';
+import { useApp } from './context.jsx';
 
 const Navigation = () => {
   const { currentPage, setCurrentPage } = useApp();

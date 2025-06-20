@@ -4,7 +4,7 @@ import Footer from './Footer';
 import HomePage from './HomePage';
 import SearchResultsPage from './SearchResultsPage';
 import AboutPage from './AboutPage';
-import { useApp } from './context';
+import { useApp } from './context.jsx';
 
 const CharismaMoveApp = () => {
   const { currentPage } = useApp();

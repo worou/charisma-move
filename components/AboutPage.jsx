@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, Mail, Phone } from 'lucide-react';
-import { useApp } from './context';
+import { useApp } from './context.jsx';
 import DataList from './DataList';
 
 const AboutPage = () => {

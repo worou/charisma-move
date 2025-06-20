@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, Star, MapPin, Clock, Users } from 'lucide-react';
-import { useApp } from './context';
+import { useApp } from './context.jsx';
 
 const SearchResultsPage = () => {
   const { setCurrentPage } = useApp();
