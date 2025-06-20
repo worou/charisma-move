@@ -77,3 +77,10 @@ docker-compose up --build
 This will start a MySQL instance and the backend on port `3001`. The frontend
 container installs its dependencies automatically and serves the React app on
 port `3000`.
+
+## Troubleshooting
+
+If the login form displays **"Email ou mot de passe invalide"** even though you
+are using the correct credentials, verify that the backend server is running on
+port `3001`. A network or server error will result in the same message on the
+frontend.
