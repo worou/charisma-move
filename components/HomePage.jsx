@@ -10,7 +10,7 @@ import {
   Globe
 } from 'lucide-react';
 import Toast from './Toast';
-import { useApp } from './context';
+import { useApp } from './context.jsx';
 
 const HomePage = () => {
   const { setCurrentPage } = useApp();

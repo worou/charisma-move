@@ -4,7 +4,7 @@ import Footer from './Footer';
 import AdminDashboard from './AdminDashboard';
 import AdminUsers from './AdminUsers';
 import AdminSettings from './AdminSettings';
-import { useAdmin } from './AdminContext';
+import { useAdmin } from './AdminContext.jsx';
 
 const AdminApp = () => {
   const { currentPage } = useAdmin();

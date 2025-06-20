@@ -1,6 +1,6 @@
 import React from 'react';
 import { Car } from 'lucide-react';
-import { useApp } from './context';
+import { useApp } from './context.jsx';
 
 const Footer = () => {
   const { setCurrentPage } = useApp();
