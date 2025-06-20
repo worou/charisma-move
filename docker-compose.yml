@@ -1,0 +1,30 @@
+version: '3.8'
+services:
+  db:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: charisma_move
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+    volumes:
+      - db-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+  backend:
+    build: .
+    container_name: charisma-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: charisma_move
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+volumes:
+  db-data:

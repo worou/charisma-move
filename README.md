@@ -4,10 +4,10 @@ This project contains a React application and a simple Node.js backend. The back
 
 ## Backend setup
 
-1. Navigate to the `server` directory and install dependencies:
+1. Navigate to the `backend` directory and install dependencies:
 
    ```bash
-   cd server
+   cd backend
    npm install
    ```
 
@@ -37,3 +37,13 @@ This project contains a React application and a simple Node.js backend. The back
 The React `AboutPage` now includes a small example component (`DataList`) that fetches and adds items using the backend API.
 
 Run your favorite React bundler to serve the frontend and ensure requests are proxied to the Node server.
+
+## Docker usage
+
+You can launch a full development stack with Docker. Ensure Docker and Docker Compose are installed, then run:
+
+```bash
+docker-compose up --build
+```
+
+This will start a MySQL instance and the backend on port `3001`.
