@@ -78,6 +78,9 @@ This will start a MySQL instance and the backend on port `3001`. The frontend
 container installs its dependencies automatically and serves the React app on
 port `3000`.
 
+phpMyAdmin is also available at [http://localhost:8080](http://localhost:8080)
+to manage the MySQL database. Use `root`/`root` to sign in.
+
 ## Troubleshooting
 
 If the login form displays **"Email ou mot de passe invalide"** even though you
