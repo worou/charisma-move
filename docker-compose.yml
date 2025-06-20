@@ -35,5 +35,15 @@ services:
       - "3000:3000"
     depends_on:
       - backend
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
 volumes:
   db-data:
