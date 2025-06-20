@@ -9,6 +9,7 @@ const Navigation = () => {
   const menuItems = [
     { id: 'home', label: 'Accueil', icon: <Home className="w-4 h-4" /> },
     { id: 'search-results', label: 'Rechercher', icon: <Search className="w-4 h-4" /> },
+    { id: 'publish', label: 'Publier', icon: <Car className="w-4 h-4" /> },
     { id: 'how-it-works', label: 'Comment ça marche', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'about', label: 'À propos', icon: <Heart className="w-4 h-4" /> }
   ];

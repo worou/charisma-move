@@ -72,7 +72,7 @@ export default function HomePage() {
   };
 
   const handlePublish = () => {
-    showToast('La publication de trajet arrive bientôt !');
+    setCurrentPage('publish');
   };
 
   return (

@@ -7,6 +7,7 @@ const AboutPage = lazy(() => import('./AboutPage'));
 const LoginPage = lazy(() => import('./LoginPage'));
 const RegisterPage = lazy(() => import('./RegisterPage'));
 const ProfilePage = lazy(() => import('./ProfilePage'));
+const PublishTripPage = lazy(() => import('./PublishTripPage'));
 import { useApp } from './context.jsx';
 
 const CharismaMoveApp = () => {
@@ -26,6 +27,8 @@ const CharismaMoveApp = () => {
         return <RegisterPage />;
       case 'profile':
         return <ProfilePage />;
+      case 'publish':
+        return <PublishTripPage />;
       default:
         return <HomePage />;
     }
