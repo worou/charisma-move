@@ -15,14 +15,20 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      if (!res.ok) throw new Error('Authentication failed');
-      const data = await res.json();
-      setUser(data.user);
-      setToken(data.token);
-      setIsAuthenticated(true);
-      setCurrentPage('profile');
+
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        setToken(data.token);
+        setIsAuthenticated(true);
+        setCurrentPage('profile');
+      } else if (res.status === 401) {
+        setError('Email ou mot de passe invalide');
+      } else {
+        setError("Erreur lors de la connexion. Veuillez réessayer plus tard.");
+      }
     } catch (err) {
-      setError('Email ou mot de passe invalide');
+      setError("Impossible de contacter le serveur");
     }
   };
 
