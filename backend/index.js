@@ -144,6 +144,14 @@ async function getItems() {
   return rows;
 }
 
+async function searchItems(query) {
+  const [rows] = await pool.query(
+    'SELECT id, name FROM items WHERE name LIKE ? COLLATE utf8mb4_general_ci',
+    [`%${query}%`]
+  );
+  return rows;
+}
+
 async function addItem(name) {
   const [result] = await pool.query('INSERT INTO items (name) VALUES (?)', [name]);
   return { id: result.insertId, name };
@@ -223,7 +231,8 @@ async function confirmBooking(id) {
 
 app.get('/api/items', async (req, res) => {
   try {
-    const rows = await getItems();
+    const { q } = req.query;
+    const rows = q ? await searchItems(q) : await getItems();
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -429,7 +438,14 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  * @swagger
  * /api/items:
  *   get:
- *     summary: List all items
+ *     summary: List items
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Filter items by name
  *     responses:
  *       200:
  *         description: Array of items

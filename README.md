@@ -60,7 +60,7 @@ Set `SENDGRID_API_KEY` and `FROM_EMAIL` to enable email notifications. `TEXTBELT
 
 ## React usage
 
-The React `AboutPage` now includes a small example component (`DataList`) that fetches and adds items using the backend API.
+The React `AboutPage` now includes a small example component (`DataList`) that fetches, searches and adds items using the backend API. You can filter items by passing a `q` query parameter to `/api/items`.
 
 Install the frontend dependencies (and ensure the backend ones are installed via `npm run setup`) in the project root and start the Vite dev server. The configuration proxies any `/api` calls to the backend on port `3001` so that registration and login work during development.
 

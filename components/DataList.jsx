@@ -3,13 +3,15 @@ import React, { useEffect, useState, memo } from 'react';
 function DataList() {
   const [items, setItems] = useState([]);
   const [value, setValue] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
-    fetch('/api/items')
+    const url = `/api/items${search ? `?q=${encodeURIComponent(search)}` : ''}`;
+    fetch(url)
       .then(res => res.json())
       .then(setItems)
       .catch(console.error);
-  }, []);
+  }, [search]);
 
   const handleAdd = () => {
     fetch('/api/items', {
@@ -26,6 +28,11 @@ function DataList() {
   return (
     <div>
       <h2>Items</h2>
+      <input
+        placeholder="Rechercher..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+      />
       <ul>
         {items.map(it => (
           <li key={it.id}>{it.name}</li>
