@@ -51,7 +51,7 @@ const STATS = [
 ];
 
 export default function HomePage() {
-  const { setCurrentPage } = useApp();
+  const { setCurrentPage, setSearchParams } = useApp();
   const [toast, setToast] = useState(null);
   const [form, setForm] = useState({
     depart: '',
@@ -67,6 +67,12 @@ export default function HomePage() {
       showToast('Veuillez remplir tous les champs obligatoires', 'error');
       return;
     }
+    setSearchParams({
+      depart: form.depart,
+      destination: form.destination,
+      date: form.date,
+      passengers: parseInt(form.passengers) || 1,
+    });
     showToast('Recherche en cours...');
     setTimeout(() => setCurrentPage('search-results'), 1000);
   };

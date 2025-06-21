@@ -24,7 +24,19 @@ const MOCK_TRIPS = [
 ];
 
 const SearchResultsPage = () => {
-  const { setCurrentPage } = useApp();
+  const { setCurrentPage, searchParams } = useApp();
+
+  const filteredTrips = React.useMemo(() => {
+    if (!searchParams) return MOCK_TRIPS;
+    const depart = searchParams.depart.toLowerCase();
+    const destination = searchParams.destination.toLowerCase();
+    const passengers = searchParams.passengers || 1;
+    return MOCK_TRIPS.filter((t) =>
+      t.departure.city.toLowerCase().includes(depart) &&
+      t.arrival.city.toLowerCase().includes(destination) &&
+      t.seats >= passengers
+    ).sort((a, b) => b.driver.rating - a.driver.rating);
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -35,11 +47,17 @@ const SearchResultsPage = () => {
             Retour à la recherche
           </button>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Trajets disponibles</h1>
-          <p className="text-gray-600">Paris → Lyon • {MOCK_TRIPS.length} trajet(s) trouvé(s)</p>
+          {searchParams ? (
+            <p className="text-gray-600">
+              {searchParams.depart} → {searchParams.destination} • {filteredTrips.length} trajet(s) trouvé(s)
+            </p>
+          ) : (
+            <p className="text-gray-600">{filteredTrips.length} trajet(s) trouvé(s)</p>
+          )}
         </div>
 
         <div className="space-y-6">
-          {MOCK_TRIPS.map((trip) => (
+          {filteredTrips.map((trip) => (
             <div key={trip.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
               <div className="flex flex-col md:flex-row md:items-center justify-between">
                 <div className="flex-1">
