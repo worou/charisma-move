@@ -88,8 +88,8 @@ const SearchResultsPage = () => {
 
                 <div className="flex flex-col items-end">
                   <div className="text-2xl font-bold text-purple-600 mb-2">{trip.price}€</div>
-                  <button onClick={() => setCurrentPage('trip-details')} className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors">
-                    Voir le trajet
+                  <button onClick={() => setCurrentPage('booking')} className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                    Réserver
                   </button>
                 </div>
               </div>

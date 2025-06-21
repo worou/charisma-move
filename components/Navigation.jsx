@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, Home, Search, BookOpen, Heart, Menu, X } from 'lucide-react';
+import { Car, Home, Search, BookOpen, Heart, Calendar, Menu, X } from 'lucide-react';
 import { useApp } from './context.jsx';
 
 const Navigation = () => {
@@ -11,7 +11,8 @@ const Navigation = () => {
     { id: 'search-results', label: 'Rechercher', icon: <Search className="w-4 h-4" /> },
     { id: 'publish', label: 'Publier', icon: <Car className="w-4 h-4" /> },
     { id: 'how-it-works', label: 'Comment ça marche', icon: <BookOpen className="w-4 h-4" /> },
-    { id: 'about', label: 'À propos', icon: <Heart className="w-4 h-4" /> }
+    { id: 'about', label: 'À propos', icon: <Heart className="w-4 h-4" /> },
+    { id: 'my-bookings', label: 'Mes réservations', icon: <Calendar className="w-4 h-4" /> }
   ];
 
   return (
