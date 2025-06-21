@@ -19,7 +19,7 @@ Run `npm run setup` from the project root to install both frontend and backend d
 
 2. Copy `.env.example` to `.env` and adjust credentials to match your MySQL instance. You can also set the initial administrator credentials here using `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
-3. Create tables for demo data and users (the `users` table now includes an `is_admin` column to flag administrators):
+3. Create tables for demo data and users (the `users` table now includes `is_admin` and `phone` columns):
 
    ```sql
    CREATE TABLE users (
@@ -27,6 +27,7 @@ Run `npm run setup` from the project root to install both frontend and backend d
        name VARCHAR(255) NOT NULL,
        email VARCHAR(255) NOT NULL UNIQUE,
        password VARCHAR(255) NOT NULL,
+       phone VARCHAR(20),
        is_admin BOOLEAN DEFAULT FALSE
    );
 
@@ -47,13 +48,15 @@ Run `npm run setup` from the project root to install both frontend and backend d
 ### User API
 
 The backend now exposes simple authentication endpoints. A default administrator account is created on first run using the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables (defaults are `admin@example.com`/`admin123`).
+Set `SENDGRID_API_KEY` and `FROM_EMAIL` to enable email notifications. `TEXTBELT_KEY` can be provided for SMS sending (defaults to the free `textbelt` key).
 
 #### Endpoints
 
-* `POST /api/users/register` – create a user. Body fields: `name`, `email`, `password`.
+* `POST /api/users/register` – create a user. Body fields: `name`, `email`, `password`, `phone`.
 * `POST /api/users/login` – obtain a JWT token. Body fields: `email`, `password`.
 * `POST /api/admin/login` – login as administrator. Body fields: `email`, `password`.
 * `GET /api/users/:id` – retrieve a user profile (requires `Authorization: Bearer <token>`).
+* `POST /api/bookings/{id}/confirm` – confirm a booking and trigger email/SMS notifications.
 
 ## React usage
 

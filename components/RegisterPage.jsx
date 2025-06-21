@@ -3,7 +3,7 @@ import { useApp } from './context.jsx';
 
 export default function RegisterPage() {
   const { setCurrentPage } = useApp();
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
@@ -60,6 +60,13 @@ export default function RegisterPage() {
           placeholder="Mot de passe"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
+          className="w-full border px-3 py-2 rounded"
+        />
+        <input
+          type="tel"
+          placeholder="Téléphone"
+          value={form.phone}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
           className="w-full border px-3 py-2 rounded"
         />
         <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded">

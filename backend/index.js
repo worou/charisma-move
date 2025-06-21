@@ -11,6 +11,34 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+async function sendEmail(to, subject, text) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const from = process.env.FROM_EMAIL;
+  if (!apiKey || !from) return;
+  await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: from },
+      subject,
+      content: [{ type: 'text/plain', value: text }],
+    }),
+  });
+}
+
+async function sendSMS(phone, message) {
+  const key = process.env.TEXTBELT_KEY || 'textbelt';
+  await fetch('https://textbelt.com/text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, message, key }),
+  });
+}
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -24,6 +52,7 @@ async function init() {
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    phone VARCHAR(20),
     is_admin BOOLEAN DEFAULT FALSE
   )`);
   await pool.query(`CREATE TABLE IF NOT EXISTS items (
@@ -45,16 +74,27 @@ async function init() {
   )`);
 
   // Add is_admin column for existing installations
-  const [cols] = await pool.query(
+  const [adminCol] = await pool.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE()
        AND TABLE_NAME = 'users'
        AND COLUMN_NAME = 'is_admin'`
   );
-  if (cols.length === 0) {
+  if (adminCol.length === 0) {
     await pool.query(
       'ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE'
     );
+  }
+
+  // Add phone column if missing
+  const [phoneCol] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'phone'`
+  );
+  if (phoneCol.length === 0) {
+    await pool.query('ALTER TABLE users ADD COLUMN phone VARCHAR(20)');
   }
 
   // Create a default admin if none exists
@@ -63,10 +103,11 @@ async function init() {
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
     const adminName = process.env.ADMIN_NAME || 'Admin';
+    const adminPhone = process.env.ADMIN_PHONE || null;
     const hash = await bcrypt.hash(adminPassword, 10);
     await pool.query(
-      'INSERT INTO users (name, email, password, is_admin) VALUES (?, ?, ?, TRUE)',
-      [adminName, adminEmail, hash]
+      'INSERT INTO users (name, email, password, phone, is_admin) VALUES (?, ?, ?, ?, TRUE)',
+      [adminName, adminEmail, hash, adminPhone]
     );
     console.log(`Default admin created with email ${adminEmail}`);
   }
@@ -84,12 +125,12 @@ async function addItem(name) {
   return { id: result.insertId, name };
 }
 
-async function createUser(name, email, password, isAdmin = false) {
+async function createUser(name, email, password, phone, isAdmin = false) {
   const [result] = await pool.query(
-    'INSERT INTO users (name, email, password, is_admin) VALUES (?, ?, ?, ?)',
-    [name, email, password, isAdmin]
+    'INSERT INTO users (name, email, password, phone, is_admin) VALUES (?, ?, ?, ?, ?)',
+    [name, email, password, phone, isAdmin]
   );
-  return { id: result.insertId, name, email, is_admin: isAdmin };
+  return { id: result.insertId, name, email, phone, is_admin: isAdmin };
 }
 
 async function findUserByEmail(email) {
@@ -98,7 +139,7 @@ async function findUserByEmail(email) {
 }
 
 async function getUserById(id) {
-  const [rows] = await pool.query('SELECT id, name, email, is_admin FROM users WHERE id = ?', [id]);
+  const [rows] = await pool.query('SELECT id, name, email, phone, is_admin FROM users WHERE id = ?', [id]);
   return rows[0];
 }
 
@@ -124,6 +165,15 @@ async function getBookingsByUser(userId) {
     [userId]
   );
   return rows;
+}
+
+async function confirmBooking(id) {
+  await pool.query('UPDATE bookings SET status = ? WHERE id = ?', ['confirmed', id]);
+  const [rows] = await pool.query(
+    `SELECT b.*, u.email, u.phone FROM bookings b JOIN users u ON b.user_id = u.id WHERE b.id = ?`,
+    [id]
+  );
+  return rows[0];
 }
 
 app.get('/api/items', async (req, res) => {
@@ -166,6 +216,30 @@ app.get('/api/bookings', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/bookings/:id/confirm', authenticateToken, async (req, res) => {
+  try {
+    const booking = await confirmBooking(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Not found' });
+    if (booking.email) {
+      await sendEmail(
+        booking.email,
+        'Confirmation de réservation',
+        `Votre réservation du ${booking.travel_date} est confirmée.`
+      );
+    }
+    if (booking.phone) {
+      await sendSMS(
+        booking.phone,
+        `Réservation confirmée pour le ${booking.travel_date}`
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -178,7 +252,7 @@ function authenticateToken(req, res, next) {
 }
 
 app.post('/api/users/register', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Missing fields' });
   }
@@ -188,7 +262,7 @@ app.post('/api/users/register', async (req, res) => {
       return res.status(409).json({ error: 'Email already in use' });
     }
     const hash = await bcrypt.hash(password, 10);
-    const user = await createUser(name, email, hash);
+    const user = await createUser(name, email, hash, phone);
     res.status(201).json(user);
   } catch (err) {
     console.error(err);
@@ -343,6 +417,20 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *     responses:
  *       200:
  *         description: Array of bookings
+ * /api/bookings/{id}/confirm:
+ *   post:
+ *     summary: Confirm a booking
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Booking confirmed
  */
 
 /**
@@ -362,6 +450,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *               email:
  *                 type: string
  *               password:
+ *                 type: string
+ *               phone:
  *                 type: string
  *     responses:
  *       201:
