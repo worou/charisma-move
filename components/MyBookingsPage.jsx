@@ -31,7 +31,7 @@ export default function MyBookingsPage() {
             {b.departure} → {b.arrival} le {b.travel_date} à {b.travel_time}
           </div>
           <div className="text-sm text-gray-600">
-            {b.seats} place(s) • {b.price}€ • {b.status}
+            {b.seats} place(s) • {b.status} • Gratuit
           </div>
         </div>
       ))}

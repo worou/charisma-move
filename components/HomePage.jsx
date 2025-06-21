@@ -13,8 +13,8 @@ import { useApp } from './context.jsx';
 const FEATURES = [
   {
     icon: <DollarSign className="w-8 h-8" />,
-    title: 'Économique',
-    description: "Partagez les frais de route et voyagez jusqu'à 3x moins cher qu'en train ou en avion."
+    title: 'Gratuit',
+    description: 'Tous les trajets sont désormais offerts à la communauté.'
   },
   {
     icon: <Leaf className="w-8 h-8" />,

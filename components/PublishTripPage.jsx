@@ -8,7 +8,6 @@ export default function PublishTripPage() {
     departure: '',
     destination: '',
     datetime: '',
-    price: '',
     seats: 1,
   });
   const [error, setError] = useState(null);
@@ -17,8 +16,8 @@ export default function PublishTripPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setError(null);
-    const { departure, destination, datetime, price } = form;
-    if (!departure || !destination || !datetime || !price) {
+    const { departure, destination, datetime } = form;
+    if (!departure || !destination || !datetime) {
       setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -83,18 +82,6 @@ export default function PublishTripPage() {
               type="datetime-local"
               value={form.datetime}
               onChange={(e) => setForm({ ...form, datetime: e.target.value })}
-              className="w-full border px-3 py-2 rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Prix par passager (€)
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
               className="w-full border px-3 py-2 rounded"
             />
           </div>
