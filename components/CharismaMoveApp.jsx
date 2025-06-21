@@ -8,6 +8,8 @@ const LoginPage = lazy(() => import('./LoginPage'));
 const RegisterPage = lazy(() => import('./RegisterPage'));
 const ProfilePage = lazy(() => import('./ProfilePage'));
 const PublishTripPage = lazy(() => import('./PublishTripPage'));
+const BookingPage = lazy(() => import('./BookingPage'));
+const MyBookingsPage = lazy(() => import('./MyBookingsPage'));
 import { useApp } from './context.jsx';
 
 const CharismaMoveApp = () => {
@@ -29,6 +31,10 @@ const CharismaMoveApp = () => {
         return <ProfilePage />;
       case 'publish':
         return <PublishTripPage />;
+      case 'booking':
+        return <BookingPage />;
+      case 'my-bookings':
+        return <MyBookingsPage />;
       default:
         return <HomePage />;
     }

@@ -14,7 +14,16 @@ export const AppProvider = ({ children }) => {
   const [currentPage, setCurrentPage] = useState('home');
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [token, setToken] = useState(null);
+  const [token, setTokenState] = useState(() => localStorage.getItem('token'));
+
+  const setToken = (t) => {
+    if (t) {
+      localStorage.setItem('token', t);
+    } else {
+      localStorage.removeItem('token');
+    }
+    setTokenState(t);
+  };
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 

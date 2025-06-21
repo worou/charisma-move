@@ -30,6 +30,19 @@ async function init() {
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL
   )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    departure VARCHAR(255),
+    arrival VARCHAR(255),
+    travel_date DATE,
+    travel_time TIME,
+    seats INT,
+    price DECIMAL(10,2),
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`);
 
   // Add is_admin column for existing installations
   const [cols] = await pool.query(
@@ -89,6 +102,31 @@ async function getUserById(id) {
   return rows[0];
 }
 
+async function createBooking(userId, booking) {
+  const [result] = await pool.query(
+    `INSERT INTO bookings (user_id, departure, arrival, travel_date, travel_time, seats, price, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+    [
+      userId,
+      booking.departure,
+      booking.arrival,
+      booking.travel_date,
+      booking.travel_time,
+      booking.seats,
+      booking.price,
+    ]
+  );
+  return { id: result.insertId, ...booking, status: 'pending' };
+}
+
+async function getBookingsByUser(userId) {
+  const [rows] = await pool.query(
+    'SELECT id, departure, arrival, travel_date, travel_time, seats, price, status, created_at FROM bookings WHERE user_id = ? ORDER BY created_at DESC',
+    [userId]
+  );
+  return rows;
+}
+
 app.get('/api/items', async (req, res) => {
   try {
     const rows = await getItems();
@@ -103,6 +141,26 @@ app.post('/api/items', async (req, res) => {
   try {
     const item = await addItem(req.body.name);
     res.status(201).json(item);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/bookings', authenticateToken, async (req, res) => {
+  try {
+    const booking = await createBooking(req.user.id, req.body);
+    res.status(201).json(booking);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.get('/api/bookings', authenticateToken, async (req, res) => {
+  try {
+    const bookings = await getBookingsByUser(req.user.id);
+    res.json(bookings);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -250,6 +308,44 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *     responses:
  *       201:
  *         description: Item created
+ */
+
+/**
+ * @swagger
+ * /api/bookings:
+ *   post:
+ *     summary: Create a booking
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               departure:
+ *                 type: string
+ *               arrival:
+ *                 type: string
+ *               travel_date:
+ *                 type: string
+ *               travel_time:
+ *                 type: string
+ *               seats:
+ *                 type: integer
+ *               price:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Booking created
+ *   get:
+ *     summary: List user bookings
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of bookings
  */
 
 /**
