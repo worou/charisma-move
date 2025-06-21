@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { useApp } from './context.jsx';
 
 export default function PublishTripPage() {
-  const { setCurrentPage } = useApp();
+  const { setCurrentPage, token } = useApp();
   const [form, setForm] = useState({
     departure: '',
     destination: '',
@@ -13,16 +13,28 @@ export default function PublishTripPage() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    const { departure, destination, datetime } = form;
+    const { departure, destination, datetime, seats } = form;
     if (!departure || !destination || !datetime) {
       setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
-    console.log('Publication de trajet:', form);
-    setSuccess(true);
+    try {
+      const res = await fetch('/api/announcements', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ departure, destination, datetime, seats }),
+      });
+      if (!res.ok) throw new Error();
+      setSuccess(true);
+    } catch {
+      setError("Erreur lors de l'enregistrement");
+    }
   };
 
   if (success) {

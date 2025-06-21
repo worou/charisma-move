@@ -74,6 +74,16 @@ async function init() {
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS announcements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    departure VARCHAR(255) NOT NULL,
+    destination VARCHAR(255) NOT NULL,
+    datetime DATETIME NOT NULL,
+    seats INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )`);
 
   // Add is_admin column for existing installations
   const [adminCol] = await pool.query(
@@ -229,6 +239,35 @@ async function confirmBooking(id) {
   return rows[0];
 }
 
+async function createAnnouncement(userId, data) {
+  const [result] = await pool.query(
+    `INSERT INTO announcements (user_id, departure, destination, datetime, seats)
+     VALUES (?, ?, ?, ?, ?)`,
+    [userId, data.departure, data.destination, data.datetime, data.seats]
+  );
+  return { id: result.insertId, ...data };
+}
+
+async function getAnnouncements(filters = {}) {
+  let query = 'SELECT * FROM announcements WHERE 1=1';
+  const params = [];
+  if (filters.departure) {
+    query += ' AND LOWER(departure) LIKE ?';
+    params.push('%' + filters.departure.toLowerCase() + '%');
+  }
+  if (filters.destination) {
+    query += ' AND LOWER(destination) LIKE ?';
+    params.push('%' + filters.destination.toLowerCase() + '%');
+  }
+  if (filters.seats) {
+    query += ' AND seats >= ?';
+    params.push(filters.seats);
+  }
+  query += ' ORDER BY datetime ASC';
+  const [rows] = await pool.query(query, params);
+  return rows;
+}
+
 app.get('/api/items', async (req, res) => {
   try {
     const { q } = req.query;
@@ -288,6 +327,39 @@ app.post('/api/bookings/:id/confirm', authenticateToken, async (req, res) => {
       );
     }
     res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/announcements', authenticateToken, async (req, res) => {
+  const { departure, destination, datetime, seats } = req.body;
+  if (!departure || !destination || !datetime || !seats) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+  try {
+    const ann = await createAnnouncement(req.user.id, {
+      departure,
+      destination,
+      datetime,
+      seats,
+    });
+    res.status(201).json(ann);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const anns = await getAnnouncements({
+      departure: req.query.departure,
+      destination: req.query.destination,
+      seats: req.query.seats ? parseInt(req.query.seats, 10) : undefined,
+    });
+    res.json(anns);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -513,6 +585,54 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *     responses:
  *       200:
  *         description: Booking confirmed
+ */
+
+/**
+ * @swagger
+ * /api/announcements:
+ *   post:
+ *     summary: Publish a new trip announcement
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               departure:
+ *                 type: string
+ *               destination:
+ *                 type: string
+ *               datetime:
+ *                 type: string
+ *               seats:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Announcement created
+ *   get:
+ *     summary: List published trips
+ *     parameters:
+ *       - in: query
+ *         name: departure
+ *         required: false
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: destination
+ *         required: false
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: seats
+ *         required: false
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Array of announcements
  */
 
 /**

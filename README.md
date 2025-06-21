@@ -58,6 +58,13 @@ Set `SENDGRID_API_KEY` and `FROM_EMAIL` to enable email notifications. `TEXTBELT
 * `GET /api/users/:id` – retrieve a user profile (requires `Authorization: Bearer <token>`).
 * `POST /api/bookings/{id}/confirm` – confirm a booking and trigger email/SMS notifications.
 
+### Announcements API
+
+Publishers can create trip announcements that other users may browse.
+
+* `POST /api/announcements` – publish a trip (requires authentication). Body fields: `departure`, `destination`, `datetime`, `seats`.
+* `GET /api/announcements` – list announcements. Optional query params: `departure`, `destination`, `seats`.
+
 ## React usage
 
 The React `AboutPage` now includes a small example component (`DataList`) that fetches, searches and adds items using the backend API. You can filter items by passing a `q` query parameter to `/api/items`.
