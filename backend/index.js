@@ -105,7 +105,7 @@ async function getUserById(id) {
 async function createBooking(userId, booking) {
   const [result] = await pool.query(
     `INSERT INTO bookings (user_id, departure, arrival, travel_date, travel_time, seats, price, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+     VALUES (?, ?, ?, ?, ?, ?, 0, 'pending')`,
     [
       userId,
       booking.departure,
@@ -113,10 +113,9 @@ async function createBooking(userId, booking) {
       booking.travel_date,
       booking.travel_time,
       booking.seats,
-      booking.price,
     ]
   );
-  return { id: result.insertId, ...booking, status: 'pending' };
+  return { id: result.insertId, ...booking, price: 0, status: 'pending' };
 }
 
 async function getBookingsByUser(userId) {
@@ -334,8 +333,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *                 type: string
  *               seats:
  *                 type: integer
- *               price:
- *                 type: number
  *     responses:
  *       201:
  *         description: Booking created

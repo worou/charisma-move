@@ -19,7 +19,6 @@ export default function BookingPage() {
           travel_date: '2024-01-15',
           travel_time: '14:00',
           seats,
-          price: 25 * seats,
         }),
       });
       if (!res.ok) throw new Error();

@@ -8,7 +8,6 @@ const MOCK_TRIPS = [
     driver: { name: "Alice Martin", rating: 4.8, reviews: 15, photo: "👩‍🦰" },
     departure: { city: "Paris", address: "Gare de Lyon", time: "14:00" },
     arrival: { city: "Lyon", address: "Part-Dieu", time: "18:00" },
-    price: 25,
     seats: 2,
     vehicle: "Renault Clio (2020)",
     instant: true
@@ -18,7 +17,6 @@ const MOCK_TRIPS = [
     driver: { name: "Bob Dupont", rating: 4.5, reviews: 8, photo: "👨‍💼" },
     departure: { city: "Paris", address: "Porte de Versailles", time: "15:30" },
     arrival: { city: "Lyon", address: "Perrache", time: "19:30" },
-    price: 22,
     seats: 3,
     vehicle: "Peugeot 308 (2019)",
     instant: false
@@ -87,7 +85,7 @@ const SearchResultsPage = () => {
                 </div>
 
                 <div className="flex flex-col items-end">
-                  <div className="text-2xl font-bold text-purple-600 mb-2">{trip.price}€</div>
+                  <div className="text-2xl font-bold text-purple-600 mb-2">Gratuit</div>
                   <button onClick={() => setCurrentPage('booking')} className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors">
                     Réserver
                   </button>
