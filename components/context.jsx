@@ -26,6 +26,7 @@ export const AppProvider = ({ children }) => {
   };
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchParams, setSearchParams] = useState(null);
 
   const value = {
     currentPage,
@@ -39,7 +40,9 @@ export const AppProvider = ({ children }) => {
     searchResults,
     setSearchResults,
     isLoading,
-    setIsLoading
+    setIsLoading,
+    searchParams,
+    setSearchParams
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
