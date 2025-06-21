@@ -81,6 +81,8 @@ npm run dev
 An administration interface is available for managing users. After starting the
 development server, open `admin.html` in your browser and sign in with the
 credentials defined by `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` file.
+Once logged in, the **Utilisateurs** section lists all registered users and lets
+you delete entries.
 
 ## Docker usage
 

@@ -206,6 +206,17 @@ async function updateUser(id, fields) {
   return getUserById(id);
 }
 
+async function getAllUsers() {
+  const [rows] = await pool.query(
+    'SELECT id, name, email, phone, is_admin FROM users ORDER BY id ASC'
+  );
+  return rows;
+}
+
+async function removeUser(id) {
+  await pool.query('DELETE FROM users WHERE id = ?', [id]);
+}
+
 async function createBooking(userId, booking) {
   const [result] = await pool.query(
     `INSERT INTO bookings (user_id, departure, arrival, travel_date, travel_time, seats, price, status)
@@ -377,6 +388,19 @@ function authenticateToken(req, res, next) {
   });
 }
 
+function authenticateAdmin(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
+    if (err || !user.is_admin) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
 app.post('/api/users/register', async (req, res) => {
   const { name, first_name, gender, email, password, phone } = req.body;
   if (!name || !email || !password) {
@@ -452,6 +476,26 @@ app.post('/api/admin/login', async (req, res) => {
       token,
       admin: { id: user.id, name: user.name, email: user.email },
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+  try {
+    const users = await getAllUsers();
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
+  try {
+    await removeUser(req.params.id);
+    res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
