@@ -1,16 +1,28 @@
 import React, { useState } from 'react';
-import { Menu, X, Home, Users, Settings } from 'lucide-react';
+import { Menu, X, Home, Users, Settings, LogOut } from 'lucide-react';
 import { useAdmin } from './AdminContext.jsx';
 
 const AdminNavigation = () => {
-  const { currentPage, setCurrentPage } = useAdmin();
+  const { currentPage, setCurrentPage, setIsAuthenticated, setAdminUser, setToken } = useAdmin();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" /> },
     { id: 'users', label: 'Utilisateurs', icon: <Users className="w-4 h-4" /> },
     { id: 'settings', label: 'Param\u00e8tres', icon: <Settings className="w-4 h-4" /> },
+    { id: 'logout', label: 'D\u00e9connexion', icon: <LogOut className="w-4 h-4" /> },
   ];
+
+  const handleClick = (id) => {
+    if (id === 'logout') {
+      setIsAuthenticated(false);
+      setAdminUser(null);
+      setToken(null);
+      setCurrentPage('dashboard');
+    } else {
+      setCurrentPage(id);
+    }
+  };
 
   return (
     <header className="bg-white shadow sticky top-0 z-50">
@@ -26,7 +38,7 @@ const AdminNavigation = () => {
               {menuItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setCurrentPage(item.id)}
+                  onClick={() => handleClick(item.id)}
                   className={`px-3 py-2 text-sm font-medium transition-colors flex items-center ${
                     currentPage === item.id ? 'text-purple-600 bg-purple-50' : 'text-gray-900 hover:text-purple-600'
                   }`}
@@ -50,7 +62,7 @@ const AdminNavigation = () => {
                 <button
                   key={item.id}
                   onClick={() => {
-                    setCurrentPage(item.id);
+                    handleClick(item.id);
                     setIsMenuOpen(false);
                   }}
                   className="flex items-center w-full px-3 py-2 text-base font-medium text-gray-900 hover:text-purple-600"

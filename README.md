@@ -76,6 +76,12 @@ npm install
 npm run dev
 ```
 
+## Administration
+
+An administration interface is available for managing users. After starting the
+development server, open `admin.html` in your browser and sign in with the
+credentials defined by `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` file.
+
 ## Docker usage
 
 You can launch a full development stack with Docker. Ensure Docker and Docker Compose are installed, then run:
