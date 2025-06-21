@@ -5,9 +5,10 @@ import AdminDashboard from './AdminDashboard';
 import AdminUsers from './AdminUsers';
 import AdminSettings from './AdminSettings';
 import { useAdmin } from './AdminContext.jsx';
+import AdminLoginPage from './AdminLoginPage.jsx';
 
 const AdminApp = () => {
-  const { currentPage } = useAdmin();
+  const { currentPage, isAuthenticated } = useAdmin();
 
   const renderPage = () => {
     switch (currentPage) {
@@ -24,9 +25,15 @@ const AdminApp = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <AdminNavigation />
-      <main>{renderPage()}</main>
-      <Footer />
+      {isAuthenticated ? (
+        <>
+          <AdminNavigation />
+          <main>{renderPage()}</main>
+          <Footer />
+        </>
+      ) : (
+        <AdminLoginPage />
+      )}
     </div>
   );
 };
