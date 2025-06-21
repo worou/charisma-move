@@ -76,7 +76,10 @@ docker-compose up --build
 
 This will start a MySQL instance and the backend on port `3001`. The frontend
 container installs its dependencies automatically and serves the React app on
-port `3000`.
+port `3000`. The Vite dev server reads the `VITE_BACKEND_URL` environment
+variable to know where the API is located. In the provided `docker-compose.yml`
+this variable is set to `http://backend:3001` so the frontend can reach the
+backend container.
 
 phpMyAdmin is also available at [http://localhost:8081](http://localhost:8081)
 to manage the MySQL database. Use `root`/`root` to sign in.
