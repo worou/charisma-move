@@ -27,6 +27,9 @@ export default function ProfilePage() {
     <div className="p-8 max-w-md mx-auto">
       <h1 className="text-2xl font-bold mb-4">Profil</h1>
       <p className="mb-2"><strong>Nom:</strong> {profile.name}</p>
+      <p className="mb-2"><strong>Prénom:</strong> {profile.first_name}</p>
+      <p className="mb-2"><strong>Téléphone:</strong> {profile.phone}</p>
+      <p className="mb-2"><strong>Genre:</strong> {profile.gender}</p>
       <p className="mb-4"><strong>Email:</strong> {profile.email}</p>
       <button onClick={logout} className="text-purple-600">Se déconnecter</button>
     </div>

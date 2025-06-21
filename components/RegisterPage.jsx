@@ -3,7 +3,7 @@ import { useApp } from './context.jsx';
 
 export default function RegisterPage() {
   const { setCurrentPage } = useApp();
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
+  const [form, setForm] = useState({ name: '', first_name: '', gender: '', email: '', password: '', phone: '' });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
@@ -49,6 +49,13 @@ export default function RegisterPage() {
           className="w-full border px-3 py-2 rounded"
         />
         <input
+          type="text"
+          placeholder="Prénom"
+          value={form.first_name}
+          onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+          className="w-full border px-3 py-2 rounded"
+        />
+        <input
           type="email"
           placeholder="Email"
           value={form.email}
@@ -62,6 +69,16 @@ export default function RegisterPage() {
           onChange={(e) => setForm({ ...form, password: e.target.value })}
           className="w-full border px-3 py-2 rounded"
         />
+        <select
+          value={form.gender}
+          onChange={(e) => setForm({ ...form, gender: e.target.value })}
+          className="w-full border px-3 py-2 rounded"
+        >
+          <option value="">Genre</option>
+          <option value="M">Homme</option>
+          <option value="F">Femme</option>
+          <option value="O">Autre</option>
+        </select>
         <input
           type="tel"
           placeholder="Téléphone"

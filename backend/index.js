@@ -50,6 +50,8 @@ async function init() {
   await pool.query(`CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    first_name VARCHAR(255),
+    gender VARCHAR(10),
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     phone VARCHAR(20),
@@ -97,6 +99,28 @@ async function init() {
     await pool.query('ALTER TABLE users ADD COLUMN phone VARCHAR(20)');
   }
 
+  // Add first_name column if missing
+  const [firstNameCol] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'first_name'`
+  );
+  if (firstNameCol.length === 0) {
+    await pool.query('ALTER TABLE users ADD COLUMN first_name VARCHAR(255)');
+  }
+
+  // Add gender column if missing
+  const [genderCol] = await pool.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'gender'`
+  );
+  if (genderCol.length === 0) {
+    await pool.query('ALTER TABLE users ADD COLUMN gender VARCHAR(10)');
+  }
+
   // Create a default admin if none exists
   const [rows] = await pool.query('SELECT COUNT(*) as count FROM users WHERE is_admin = TRUE');
   if (rows[0].count === 0) {
@@ -106,8 +130,8 @@ async function init() {
     const adminPhone = process.env.ADMIN_PHONE || null;
     const hash = await bcrypt.hash(adminPassword, 10);
     await pool.query(
-      'INSERT INTO users (name, email, password, phone, is_admin) VALUES (?, ?, ?, ?, TRUE)',
-      [adminName, adminEmail, hash, adminPhone]
+      'INSERT INTO users (name, first_name, gender, email, password, phone, is_admin) VALUES (?, ?, ?, ?, ?, ?, TRUE)',
+      [adminName, null, null, adminEmail, hash, adminPhone]
     );
     console.log(`Default admin created with email ${adminEmail}`);
   }
@@ -125,12 +149,12 @@ async function addItem(name) {
   return { id: result.insertId, name };
 }
 
-async function createUser(name, email, password, phone, isAdmin = false) {
+async function createUser(name, email, password, phone, firstName = null, gender = null, isAdmin = false) {
   const [result] = await pool.query(
-    'INSERT INTO users (name, email, password, phone, is_admin) VALUES (?, ?, ?, ?, ?)',
-    [name, email, password, phone, isAdmin]
+    'INSERT INTO users (name, first_name, gender, email, password, phone, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [name, firstName, gender, email, password, phone, isAdmin]
   );
-  return { id: result.insertId, name, email, phone, is_admin: isAdmin };
+  return { id: result.insertId, name, first_name: firstName, gender, email, phone, is_admin: isAdmin };
 }
 
 async function findUserByEmail(email) {
@@ -139,8 +163,29 @@ async function findUserByEmail(email) {
 }
 
 async function getUserById(id) {
-  const [rows] = await pool.query('SELECT id, name, email, phone, is_admin FROM users WHERE id = ?', [id]);
+  const [rows] = await pool.query(
+    'SELECT id, name, first_name, gender, email, phone, is_admin FROM users WHERE id = ?',
+    [id]
+  );
   return rows[0];
+}
+
+async function updateUser(id, fields) {
+  const allowed = ['name', 'first_name', 'gender', 'phone'];
+  const setParts = [];
+  const values = [];
+  for (const key of allowed) {
+    if (fields[key] !== undefined) {
+      setParts.push(`${key} = ?`);
+      values.push(fields[key]);
+    }
+  }
+  if (setParts.length === 0) {
+    return getUserById(id);
+  }
+  values.push(id);
+  await pool.query(`UPDATE users SET ${setParts.join(', ')} WHERE id = ?`, values);
+  return getUserById(id);
 }
 
 async function createBooking(userId, booking) {
@@ -252,7 +297,7 @@ function authenticateToken(req, res, next) {
 }
 
 app.post('/api/users/register', async (req, res) => {
-  const { name, email, password, phone } = req.body;
+  const { name, first_name, gender, email, password, phone } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Missing fields' });
   }
@@ -262,7 +307,7 @@ app.post('/api/users/register', async (req, res) => {
       return res.status(409).json({ error: 'Email already in use' });
     }
     const hash = await bcrypt.hash(password, 10);
-    const user = await createUser(name, email, hash, phone);
+    const user = await createUser(name, email, hash, phone, first_name, gender);
     res.status(201).json(user);
   } catch (err) {
     console.error(err);
@@ -289,7 +334,15 @@ app.post('/api/users/login', async (req, res) => {
     );
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, is_admin: user.is_admin },
+      user: {
+        id: user.id,
+        name: user.name,
+        first_name: user.first_name,
+        gender: user.gender,
+        email: user.email,
+        phone: user.phone,
+        is_admin: user.is_admin,
+      },
     });
   } catch (err) {
     console.error(err);
@@ -331,6 +384,19 @@ app.get('/api/users/:id', authenticateToken, async (req, res) => {
     }
     const user = await getUserById(req.user.id);
     res.json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.put('/api/users/:id', authenticateToken, async (req, res) => {
+  try {
+    if (parseInt(req.params.id, 10) !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const updated = await updateUser(req.user.id, req.body);
+    res.json(updated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -498,6 +564,39 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *         description: User profile
  *       401:
  *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   put:
+ *     summary: Update user profile
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               first_name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               gender:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Updated user profile
  */
 
 const PORT = process.env.PORT || 3001;
