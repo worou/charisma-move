@@ -130,7 +130,7 @@ export default function BookingPage() {
             Enregistrer
           </button>
         </form>
-      )
+      )}
       <div className="bg-white rounded-xl shadow-lg p-6 space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">Nombre de places</label>
