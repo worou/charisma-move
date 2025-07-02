@@ -1,118 +1,202 @@
-# Charisma Move
+# Charisma'Move - Plateforme de Covoiturage
 
-This project contains a React application and a simple Node.js backend. The backend stores data in a MySQL database and exposes REST APIs documented with Swagger. The React interface demonstrates how to consume these APIs.
+Une plateforme moderne de covoiturage développée avec React et Node.js.
 
-## Quick setup
+## 🚀 Fonctionnalités
 
-Run `npm run setup` from the project root to install both frontend and backend dependencies in one step. This installs packages in the `backend` folder as well.
+- **Recherche de trajets** : Trouvez des covoiturages disponibles
+- **Publication de trajets** : Proposez vos trajets à la communauté
+- **Système de réservation** : Réservez facilement vos places
+- **Gestion de profil** : Gérez vos informations personnelles
+- **Interface admin** : Tableau de bord administrateur complet
+- **Notifications** : Système de notifications en temps réel
+- **Responsive design** : Interface adaptée à tous les appareils
 
-## Backend setup
+## 🛠️ Technologies utilisées
 
-1. Navigate to the `backend` directory and install dependencies:
+### Frontend
+- React 18
+- Vite
+- Tailwind CSS
+- Lucide React (icônes)
+- Recharts (graphiques)
 
+### Backend
+- Node.js
+- Express.js
+- MySQL
+- JWT (authentification)
+- bcryptjs (hachage des mots de passe)
+
+## 📋 Prérequis
+
+- Node.js (version 16 ou supérieure)
+- MySQL (version 5.7 ou supérieure)
+- npm ou yarn
+
+## 🔧 Installation
+
+1. **Cloner le repository**
    ```bash
+   git clone <url-du-repo>
+   cd charisma-move
+   ```
+
+2. **Installer les dépendances**
+   ```bash
+   npm run setup
+   ```
+
+3. **Configurer la base de données**
+   - Créer une base de données MySQL nommée `charisma_move`
+   - Copier le fichier `env.example` vers `.env`
+   - Modifier les variables d'environnement dans `.env`
+
+4. **Démarrer l'application**
+   ```bash
+   # Terminal 1 - Frontend
+   npm run dev
+   
+   # Terminal 2 - Backend
    cd backend
-   npm install
-   ```
-
-   *(Network access is required to download packages.)*
-
-2. Copy `.env.example` to `.env` and adjust credentials to match your MySQL instance. You can also set the initial administrator credentials here using `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
-
-3. Create tables for demo data and users (the `users` table now includes `is_admin` and `phone` columns):
-
-   ```sql
-   CREATE TABLE users (
-       id INT AUTO_INCREMENT PRIMARY KEY,
-       name VARCHAR(255) NOT NULL,
-       email VARCHAR(255) NOT NULL UNIQUE,
-       password VARCHAR(255) NOT NULL,
-       phone VARCHAR(20),
-       is_admin BOOLEAN DEFAULT FALSE
-   );
-
-   CREATE TABLE items (
-       id INT AUTO_INCREMENT PRIMARY KEY,
-       name VARCHAR(255) NOT NULL
-   );
-   ```
-
-4. Start the server:
-
-   ```bash
    npm start
    ```
 
-   The API will be available on `http://localhost:3001` and documentation on `http://localhost:3001/api-docs`.
+## ⚙️ Configuration
 
-### User API
+### Variables d'environnement
 
-The backend now exposes simple authentication endpoints. A default administrator account is created on first run using the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables (defaults are `admin@example.com`/`admin123`).
-Set `SENDGRID_API_KEY` and `FROM_EMAIL` to enable email notifications. `TEXTBELT_KEY` can be provided for SMS sending (defaults to the free `textbelt` key).
+Créez un fichier `.env` dans le dossier racine avec les variables suivantes :
 
-#### Endpoints
+```env
+# Base de données
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=votre_mot_de_passe
+DB_NAME=charisma_move
 
-* `POST /api/users/register` – create a user. Body fields: `name`, `email`, `password`, `phone`.
-* `POST /api/users/login` – obtain a JWT token. Body fields: `email`, `password`.
-* `POST /api/admin/login` – login as administrator. Body fields: `email`, `password`.
-* `GET /api/users/:id` – retrieve a user profile (requires `Authorization: Bearer <token>`).
-* `POST /api/bookings/{id}/confirm` – confirm a booking and trigger email/SMS notifications.
+# Serveur
+PORT=3001
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
 
-### Announcements API
+# JWT
+JWT_SECRET=votre_secret_jwt_tres_securise
+JWT_EXPIRES_IN=7d
 
-Publishers can create trip announcements that other users may browse.
+# Admin par défaut
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123
+ADMIN_NAME=Admin
 
-* `POST /api/announcements` – publish a trip (requires authentication). Body fields: `departure`, `destination`, `datetime`, `seats`.
-* `GET /api/announcements` – list announcements. Optional query params: `departure`, `destination`, `seats`.
+# Email (optionnel)
+SENDGRID_API_KEY=votre_cle_api_sendgrid
+FROM_EMAIL=noreply@charisma-move.com
 
-## React usage
-
-The React `AboutPage` now includes a small example component (`DataList`) that fetches, searches and adds items using the backend API. You can filter items by passing a `q` query parameter to `/api/items`.
-
-Install the frontend dependencies (and ensure the backend ones are installed via `npm run setup`) in the project root and start the Vite dev server. The configuration proxies any `/api` calls to the backend on port `3001` so that registration and login work during development.
-
-```bash
-npm install
-npm run dev
+# SMS (optionnel)
+TEXTBELT_KEY=votre_cle_textbelt
 ```
 
-## Administration
+## 🚀 Démarrage rapide
 
-An administration interface is available for managing users. After starting the
-development server, open `admin.html` in your browser and sign in with the
-credentials defined by `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` file.
-Once logged in, the **Utilisateurs** section lists all registered users and lets
-you delete entries.
+1. **Installation automatique**
+   ```bash
+   npm run setup
+   ```
 
-## Docker usage
+2. **Démarrage des services**
+   ```bash
+   # Frontend (http://localhost:3000)
+   npm run dev
+   
+   # Backend (http://localhost:3001)
+   cd backend && npm start
+   ```
 
-You can launch a full development stack with Docker. Ensure Docker and Docker Compose are installed, then run:
+3. **Accès à l'application**
+   - Application principale : http://localhost:3000
+   - Interface admin : http://localhost:3000/admin
+   - API documentation : http://localhost:3001/api-docs
 
-```bash
-docker-compose up --build
+## 📁 Structure du projet
+
+```
+charisma-move/
+├── components/          # Composants React
+│   ├── AdminApp.jsx    # Interface administrateur
+│   ├── CharismaMoveApp.jsx # Application principale
+│   ├── context.jsx     # Contexte global
+│   └── ...
+├── backend/            # Serveur Node.js
+│   ├── index.js       # Point d'entrée du serveur
+│   └── package.json   # Dépendances backend
+├── main.jsx           # Point d'entrée React
+├── home.jsx           # Composant racine
+├── vite.config.js     # Configuration Vite
+└── package.json       # Dépendances frontend
 ```
 
-This will start a MySQL instance and the backend on port `3001`. The frontend
-container installs its dependencies automatically and serves the React app on
-port `3000`. The Vite dev server reads the `VITE_BACKEND_URL` environment
-variable to know where the API is located. In the provided `docker-compose.yml`
-this variable is set to `http://backend:3001` so the frontend can reach the
-backend container.
+## 🔐 Sécurité
 
-phpMyAdmin is also available at [http://localhost:8081](http://localhost:8081)
-to manage the MySQL database. Use `root`/`root` to sign in.
+- Authentification JWT
+- Hachage des mots de passe avec bcrypt
+- Validation des données côté serveur
+- Protection CORS configurée
+- Rate limiting (à implémenter)
 
-## Troubleshooting
-
-If the login form displays **"Email ou mot de passe invalide"** even though you
-are using the correct credentials, verify that the backend server is running on
-port `3001`. A network or server error will result in the same message on the
-frontend.
-
-If `npm start` prints an **"EADDRINUSE"** error, another process is already
-using port `3001`. Stop the existing process or run the backend on a different
-port:
+## 🧪 Tests
 
 ```bash
-PORT=3002 npm start
+# Tests frontend (à implémenter)
+npm test
+
+# Tests backend (à implémenter)
+cd backend && npm test
 ```
+
+## 📦 Build de production
+
+```bash
+# Build frontend
+npm run build
+
+# Build backend
+cd backend && npm run build
+```
+
+## 🐳 Docker (optionnel)
+
+```bash
+# Construire l'image
+docker-compose build
+
+# Démarrer les services
+docker-compose up -d
+```
+
+## 🤝 Contribution
+
+1. Fork le projet
+2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
+3. Commit les changements (`git commit -m 'Add some AmazingFeature'`)
+4. Push vers la branche (`git push origin feature/AmazingFeature`)
+5. Ouvrir une Pull Request
+
+## 📝 Licence
+
+Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+
+## 🆘 Support
+
+Pour toute question ou problème :
+- Ouvrir une issue sur GitHub
+- Contacter l'équipe de développement
+
+## 🔄 Changelog
+
+### Version 1.0.0
+- Interface utilisateur complète
+- Système d'authentification
+- Gestion des trajets et réservations
+- Interface administrateur
+- API REST complète

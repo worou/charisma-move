@@ -8,35 +8,84 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
-app.use(express.json());
-app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+
+// Middleware de validation
+const validateEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validatePassword = (password) => {
+  return password && password.length >= 6;
+};
+
+const validateRequired = (data, fields) => {
+  const errors = [];
+  fields.forEach(field => {
+    if (!data[field] || data[field].toString().trim() === '') {
+      errors.push(`${field} est requis`);
+    }
+  });
+  return errors;
+};
+
+// Middleware de gestion d'erreurs
+const errorHandler = (err, req, res, next) => {
+  console.error('Erreur:', err);
+  res.status(500).json({ 
+    error: 'Erreur interne du serveur',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Une erreur est survenue'
+  });
+};
+
+// Middleware de logging
+const requestLogger = (req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+};
+
+app.use(requestLogger);
 
 async function sendEmail(to, subject, text) {
   const apiKey = process.env.SENDGRID_API_KEY;
   const from = process.env.FROM_EMAIL;
   if (!apiKey || !from) return;
-  await fetch('https://api.sendgrid.com/v3/mail/send', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: to }] }],
-      from: { email: from },
-      subject,
-      content: [{ type: 'text/plain', value: text }],
-    }),
-  });
+  
+  try {
+    await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: from },
+        subject,
+        content: [{ type: 'text/plain', value: text }],
+      }),
+    });
+  } catch (error) {
+    console.error('Erreur envoi email:', error);
+  }
 }
 
 async function sendSMS(phone, message) {
   const key = process.env.TEXTBELT_KEY || 'textbelt';
-  await fetch('https://textbelt.com/text', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone, message, key }),
-  });
+  try {
+    await fetch('https://textbelt.com/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, message, key }),
+    });
+  } catch (error) {
+    console.error('Erreur envoi SMS:', error);
+  }
 }
 
 const pool = mysql.createPool({
@@ -44,106 +93,112 @@ const pool = mysql.createPool({
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'charisma_move',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  acquireTimeout: 60000,
+  timeout: 60000,
 });
 
+// Test de connexion à la base de données
+pool.getConnection()
+  .then(connection => {
+    console.log('Connexion à la base de données établie');
+    connection.release();
+  })
+  .catch(err => {
+    console.error('Erreur de connexion à la base de données:', err);
+  });
+
 async function init() {
-  await pool.query(`CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    first_name VARCHAR(255),
-    gender VARCHAR(10),
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    phone VARCHAR(20),
-    is_admin BOOLEAN DEFAULT FALSE
-  )`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL
-  )`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    departure VARCHAR(255),
-    arrival VARCHAR(255),
-    travel_date DATE,
-    travel_time TIME,
-    seats INT,
-    price DECIMAL(10,2),
-    status VARCHAR(20) DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  )`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS announcements (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    departure VARCHAR(255) NOT NULL,
-    destination VARCHAR(255) NOT NULL,
-    datetime DATETIME NOT NULL,
-    seats INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  )`);
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      first_name VARCHAR(255),
+      gender VARCHAR(10),
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      phone VARCHAR(20),
+      is_admin BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`);
+    
+    await pool.query(`CREATE TABLE IF NOT EXISTS items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    
+    await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      departure VARCHAR(255),
+      arrival VARCHAR(255),
+      travel_date DATE,
+      travel_time TIME,
+      seats INT,
+      price DECIMAL(10,2),
+      status VARCHAR(20) DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`);
+    
+    await pool.query(`CREATE TABLE IF NOT EXISTS announcements (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      departure VARCHAR(255) NOT NULL,
+      destination VARCHAR(255) NOT NULL,
+      datetime DATETIME NOT NULL,
+      seats INT NOT NULL,
+      price DECIMAL(10,2),
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`);
 
-  // Add is_admin column for existing installations
-  const [adminCol] = await pool.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'users'
-       AND COLUMN_NAME = 'is_admin'`
-  );
-  if (adminCol.length === 0) {
-    await pool.query(
-      'ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE'
-    );
-  }
+    // Vérifier et ajouter les colonnes manquantes
+    const columns = [
+      { name: 'is_admin', type: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'phone', type: 'VARCHAR(20)' },
+      { name: 'first_name', type: 'VARCHAR(255)' },
+      { name: 'gender', type: 'VARCHAR(10)' },
+      { name: 'created_at', type: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' },
+      { name: 'updated_at', type: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' }
+    ];
 
-  // Add phone column if missing
-  const [phoneCol] = await pool.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'users'
-       AND COLUMN_NAME = 'phone'`
-  );
-  if (phoneCol.length === 0) {
-    await pool.query('ALTER TABLE users ADD COLUMN phone VARCHAR(20)');
-  }
+    for (const column of columns) {
+      const [col] = await pool.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'users'
+           AND COLUMN_NAME = ?`,
+        [column.name]
+      );
+      if (col.length === 0) {
+        await pool.query(`ALTER TABLE users ADD COLUMN ${column.name} ${column.type}`);
+      }
+    }
 
-  // Add first_name column if missing
-  const [firstNameCol] = await pool.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'users'
-       AND COLUMN_NAME = 'first_name'`
-  );
-  if (firstNameCol.length === 0) {
-    await pool.query('ALTER TABLE users ADD COLUMN first_name VARCHAR(255)');
-  }
-
-  // Add gender column if missing
-  const [genderCol] = await pool.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'users'
-       AND COLUMN_NAME = 'gender'`
-  );
-  if (genderCol.length === 0) {
-    await pool.query('ALTER TABLE users ADD COLUMN gender VARCHAR(10)');
-  }
-
-  // Create a default admin if none exists
-  const [rows] = await pool.query('SELECT COUNT(*) as count FROM users WHERE is_admin = TRUE');
-  if (rows[0].count === 0) {
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-    const adminName = process.env.ADMIN_NAME || 'Admin';
-    const adminPhone = process.env.ADMIN_PHONE || null;
-    const hash = await bcrypt.hash(adminPassword, 10);
-    await pool.query(
-      'INSERT INTO users (name, first_name, gender, email, password, phone, is_admin) VALUES (?, ?, ?, ?, ?, ?, TRUE)',
-      [adminName, null, null, adminEmail, hash, adminPhone]
-    );
-    console.log(`Default admin created with email ${adminEmail}`);
+    // Créer un admin par défaut si aucun n'existe
+    const [rows] = await pool.query('SELECT COUNT(*) as count FROM users WHERE is_admin = TRUE');
+    if (rows[0].count === 0) {
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+      const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+      const adminName = process.env.ADMIN_NAME || 'Admin';
+      const adminPhone = process.env.ADMIN_PHONE || null;
+      const hash = await bcrypt.hash(adminPassword, 12);
+      await pool.query(
+        'INSERT INTO users (name, first_name, gender, email, password, phone, is_admin) VALUES (?, ?, ?, ?, ?, ?, TRUE)',
+        [adminName, null, null, adminEmail, hash, adminPhone]
+      );
+      console.log(`Admin par défaut créé avec l'email ${adminEmail}`);
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation:', error);
   }
 }
 

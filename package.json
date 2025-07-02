@@ -6,15 +6,22 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "setup": "npm install && cd backend && npm install"
+    "setup": "npm install && cd backend && npm install",
+    "start": "node start.js",
+    "start:dev": "concurrently \"npm run dev\" \"cd backend && npm start\"",
+    "test": "echo \"Tests à implémenter\"",
+    "lint": "echo \"Linting à implémenter\""
   },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.263.1"
+    "lucide-react": "^0.263.1",
+    "recharts": "^2.8.0",
+    "react-router-dom": "^6.8.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",
-    "vite": "^4.2.0"
+    "vite": "^4.2.0",
+    "concurrently": "^8.2.0"
   }
 }
