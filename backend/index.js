@@ -532,6 +532,65 @@ app.get('/api/announcements/nearby', async (req, res) => {
   }
 });
 
+// Itinéraire transports en commun vers l'église via Navitia (si NAVITIA_TOKEN configuré)
+// Fallback silencieux : si pas de token, renvoie { available: false } et le client utilisera les deep-links.
+app.get('/api/transit/journeys', async (req, res) => {
+  const fromLat = parseFloat(req.query.from_lat);
+  const fromLng = parseFloat(req.query.from_lng);
+  const toLat = parseFloat(req.query.to_lat);
+  const toLng = parseFloat(req.query.to_lng);
+  const datetime = req.query.datetime; // format YYYYMMDDTHHMMSS (optionnel)
+
+  if ([fromLat, fromLng, toLat, toLng].some(Number.isNaN)) {
+    return res.status(400).json({ error: 'Coordonnées invalides' });
+  }
+
+  const token = process.env.NAVITIA_TOKEN;
+  if (!token) {
+    return res.json({ available: false, reason: 'NAVITIA_TOKEN non configuré' });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      from: `${fromLng};${fromLat}`,
+      to: `${toLng};${toLat}`,
+      max_nb_journeys: '3',
+    });
+    if (datetime) params.set('datetime', datetime);
+
+    const url = `https://api.navitia.io/v1/coverage/fr-idf/journeys?${params.toString()}`;
+    const r = await fetch(url, { headers: { Authorization: token } });
+    if (!r.ok) {
+      const msg = await r.text();
+      console.error('Navitia error:', r.status, msg);
+      return res.status(502).json({ available: false, reason: 'Navitia indisponible' });
+    }
+    const data = await r.json();
+    // On ne renvoie que ce qui est utile au client pour alléger la payload
+    const journeys = (data.journeys || []).map((j) => ({
+      duration: j.duration, // secondes
+      departure_date_time: j.departure_date_time,
+      arrival_date_time: j.arrival_date_time,
+      nb_transfers: j.nb_transfers,
+      sections: (j.sections || [])
+        .filter((s) => s.type !== 'waiting')
+        .map((s) => ({
+          type: s.type,
+          mode: s.mode || (s.display_informations && s.display_informations.commercial_mode),
+          line: s.display_informations && s.display_informations.label,
+          direction: s.display_informations && s.display_informations.direction,
+          from: s.from && s.from.name,
+          to: s.to && s.to.name,
+          duration: s.duration,
+        })),
+    }));
+    res.json({ available: true, journeys });
+  } catch (err) {
+    console.error('Transit journeys error:', err);
+    res.status(502).json({ available: false, reason: 'Erreur serveur transit' });
+  }
+});
+
 // Proxy de géocodage vers l'API Adresse Gouv (évite les soucis CORS côté client)
 app.get('/api/geocode', async (req, res) => {
   const q = (req.query.q || '').trim();

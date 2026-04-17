@@ -6,7 +6,8 @@ import {
   Shield,
   Smartphone,
   Globe,
-  MapPin
+  MapPin,
+  Bus
 } from 'lucide-react';
 import Toast from './Toast';
 import { useApp } from './context.jsx';
@@ -156,13 +157,22 @@ export default function HomePage() {
             Publier un trajet
           </button>
         </div>
-        <button
-          onClick={() => setCurrentPage('nearby')}
-          className="w-full mt-4 flex items-center justify-center gap-2 bg-pink-50 text-pink-700 border border-pink-200 py-3 rounded-xl font-semibold hover:bg-pink-100 transition-colors"
-        >
-          <MapPin className="w-5 h-5" />
-          Trouver un covoitureur près de moi
-        </button>
+        <div className="grid md:grid-cols-2 gap-3 mt-4">
+          <button
+            onClick={() => setCurrentPage('nearby')}
+            className="flex items-center justify-center gap-2 bg-pink-50 text-pink-700 border border-pink-200 py-3 rounded-xl font-semibold hover:bg-pink-100 transition-colors"
+          >
+            <MapPin className="w-5 h-5" />
+            Trouver un covoitureur près de moi
+          </button>
+          <button
+            onClick={() => setCurrentPage('transit')}
+            className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 border border-blue-200 py-3 rounded-xl font-semibold hover:bg-blue-100 transition-colors"
+          >
+            <Bus className="w-5 h-5" />
+            Venir en bus / tram / train
+          </button>
+        </div>
       </section>
 
       {/* Features */}
