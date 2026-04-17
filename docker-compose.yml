@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   db:
     image: mysql:8
@@ -10,7 +9,8 @@ services:
       - db-data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "3306:3306"
+      # Hôte 3307 -> conteneur 3306 (évite le conflit avec un MySQL local déjà en écoute sur 3306)
+      - "3307:3306"
   backend:
     build: .
     container_name: charisma-backend
