@@ -151,6 +151,8 @@ async function init() {
       user_id INT NOT NULL,
       departure VARCHAR(255) NOT NULL,
       destination VARCHAR(255) NOT NULL,
+      departure_lat DECIMAL(10,7) NULL,
+      departure_lng DECIMAL(10,7) NULL,
       datetime DATETIME NOT NULL,
       seats INT NOT NULL,
       price DECIMAL(10,2),
@@ -159,6 +161,24 @@ async function init() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`);
+
+    // Migration : ajout des colonnes géographiques si absentes (pour bases existantes)
+    const annGeoColumns = [
+      { name: 'departure_lat', type: 'DECIMAL(10,7) NULL' },
+      { name: 'departure_lng', type: 'DECIMAL(10,7) NULL' },
+    ];
+    for (const column of annGeoColumns) {
+      const [col] = await pool.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'announcements'
+           AND COLUMN_NAME = ?`,
+        [column.name]
+      );
+      if (col.length === 0) {
+        await pool.query(`ALTER TABLE announcements ADD COLUMN ${column.name} ${column.type}`);
+      }
+    }
 
     // Vérifier et ajouter les colonnes manquantes
     const columns = [
@@ -307,11 +327,61 @@ async function confirmBooking(id) {
 
 async function createAnnouncement(userId, data) {
   const [result] = await pool.query(
-    `INSERT INTO announcements (user_id, departure, destination, datetime, seats)
-     VALUES (?, ?, ?, ?, ?)`,
-    [userId, data.departure, data.destination, data.datetime, data.seats]
+    `INSERT INTO announcements (user_id, departure, destination, departure_lat, departure_lng, datetime, seats)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      userId,
+      data.departure,
+      data.destination,
+      data.departure_lat ?? null,
+      data.departure_lng ?? null,
+      data.datetime,
+      data.seats,
+    ]
   );
   return { id: result.insertId, ...data };
+}
+
+// Géocodage côté serveur via l'API Adresse Gouv française (gratuit, sans clé)
+async function geocodeAddress(address) {
+  try {
+    const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(address)}&limit=1`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const feat = data?.features?.[0];
+    if (!feat) return null;
+    const [lng, lat] = feat.geometry.coordinates;
+    return { lat, lng, label: feat.properties.label };
+  } catch (err) {
+    console.error('Géocodage échoué:', err);
+    return null;
+  }
+}
+
+// Recherche de trajets proches d'un point (formule de Haversine)
+async function getNearbyAnnouncements({ lat, lng, radiusKm = 20, fromDate = null }) {
+  const params = [lat, lng, lat];
+  let query = `
+    SELECT a.*, u.name AS driver_name, u.first_name AS driver_first_name,
+           u.email AS driver_email, u.phone AS driver_phone,
+           (6371 * ACOS(
+              LEAST(1, COS(RADIANS(?)) * COS(RADIANS(a.departure_lat))
+              * COS(RADIANS(a.departure_lng) - RADIANS(?))
+              + SIN(RADIANS(?)) * SIN(RADIANS(a.departure_lat)))
+           )) AS distance_km
+    FROM announcements a
+    JOIN users u ON u.id = a.user_id
+    WHERE a.departure_lat IS NOT NULL AND a.departure_lng IS NOT NULL
+      AND a.seats > 0`;
+  if (fromDate) {
+    query += ' AND a.datetime >= ?';
+    params.push(fromDate);
+  }
+  query += ' HAVING distance_km <= ? ORDER BY distance_km ASC LIMIT 50';
+  params.push(radiusKm);
+  const [rows] = await pool.query(query, params);
+  return rows;
 }
 
 async function getAnnouncements(filters = {}) {
@@ -400,21 +470,74 @@ app.post('/api/bookings/:id/confirm', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/announcements', authenticateToken, async (req, res) => {
-  const { departure, destination, datetime, seats } = req.body;
+  const { departure, destination, datetime, seats, departure_lat, departure_lng } = req.body;
   if (!departure || !destination || !datetime || !seats) {
     return res.status(400).json({ error: 'Missing fields' });
   }
   try {
+    // Si le client ne fournit pas les coordonnées, on géocode automatiquement
+    let lat = departure_lat;
+    let lng = departure_lng;
+    if (lat == null || lng == null) {
+      const geo = await geocodeAddress(departure);
+      if (geo) {
+        lat = geo.lat;
+        lng = geo.lng;
+      }
+    }
     const ann = await createAnnouncement(req.user.id, {
       departure,
       destination,
       datetime,
       seats,
+      departure_lat: lat,
+      departure_lng: lng,
     });
     res.status(201).json(ann);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Recherche de covoitureurs proches d'une position géographique
+app.get('/api/announcements/nearby', async (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lng = parseFloat(req.query.lng);
+  const radius = req.query.radius ? parseFloat(req.query.radius) : 20;
+  const fromDate = req.query.from || null;
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    return res.status(400).json({ error: 'lat/lng requis et numériques' });
+  }
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return res.status(400).json({ error: 'Coordonnées hors bornes' });
+  }
+  if (radius <= 0 || radius > 500) {
+    return res.status(400).json({ error: 'Rayon invalide (1-500 km)' });
+  }
+
+  try {
+    const rows = await getNearbyAnnouncements({ lat, lng, radiusKm: radius, fromDate });
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Proxy de géocodage vers l'API Adresse Gouv (évite les soucis CORS côté client)
+app.get('/api/geocode', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 3) return res.json({ features: [] });
+  try {
+    const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=5`;
+    const r = await fetch(url);
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    console.error('Geocode error:', err);
+    res.status(502).json({ error: 'Service de géocodage indisponible' });
   }
 });
 
