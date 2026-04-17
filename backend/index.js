@@ -327,8 +327,8 @@ async function confirmBooking(id) {
 
 async function createAnnouncement(userId, data) {
   const [result] = await pool.query(
-    `INSERT INTO announcements (user_id, departure, destination, departure_lat, departure_lng, datetime, seats)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO announcements (user_id, departure, destination, departure_lat, departure_lng, datetime, seats, description)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       userId,
       data.departure,
@@ -337,6 +337,7 @@ async function createAnnouncement(userId, data) {
       data.departure_lng ?? null,
       data.datetime,
       data.seats,
+      data.description ?? null,
     ]
   );
   return { id: result.insertId, ...data };
@@ -470,9 +471,13 @@ app.post('/api/bookings/:id/confirm', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/announcements', authenticateToken, async (req, res) => {
-  const { departure, destination, datetime, seats, departure_lat, departure_lng } = req.body;
+  const { departure, destination, datetime, seats, departure_lat, departure_lng, description } =
+    req.body;
   if (!departure || !destination || !datetime || !seats) {
     return res.status(400).json({ error: 'Missing fields' });
+  }
+  if (new Date(datetime).getTime() < Date.now() - 60 * 1000) {
+    return res.status(400).json({ error: 'La date/heure est dans le passé' });
   }
   try {
     // Si le client ne fournit pas les coordonnées, on géocode automatiquement
@@ -492,6 +497,7 @@ app.post('/api/announcements', authenticateToken, async (req, res) => {
       seats,
       departure_lat: lat,
       departure_lng: lng,
+      description: description || null,
     });
     res.status(201).json(ann);
   } catch (err) {
