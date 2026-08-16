@@ -1,442 +1,100 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
-const swaggerUi = require('swagger-ui-express');
-const swaggerJsdoc = require('swagger-jsdoc');
+const Database = require('better-sqlite3');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  credentials: true,
 }));
-
-// Middleware de validation
-const validateEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-const validatePassword = (password) => {
-  return password && password.length >= 6;
-};
-
-const validateRequired = (data, fields) => {
-  const errors = [];
-  fields.forEach(field => {
-    if (!data[field] || data[field].toString().trim() === '') {
-      errors.push(`${field} est requis`);
-    }
-  });
-  return errors;
-};
-
-// Middleware de gestion d'erreurs
-const errorHandler = (err, req, res, next) => {
-  console.error('Erreur:', err);
-  res.status(500).json({ 
-    error: 'Erreur interne du serveur',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Une erreur est survenue'
-  });
-};
-
-// Middleware de logging
-const requestLogger = (req, res, next) => {
+app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
-};
-
-app.use(requestLogger);
-
-async function sendEmail(to, subject, text) {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  const from = process.env.FROM_EMAIL;
-  if (!apiKey || !from) return;
-  
-  try {
-    await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: to }] }],
-        from: { email: from },
-        subject,
-        content: [{ type: 'text/plain', value: text }],
-      }),
-    });
-  } catch (error) {
-    console.error('Erreur envoi email:', error);
-  }
-}
-
-async function sendSMS(phone, message) {
-  const key = process.env.TEXTBELT_KEY || 'textbelt';
-  try {
-    await fetch('https://textbelt.com/text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, message, key }),
-    });
-  } catch (error) {
-    console.error('Erreur envoi SMS:', error);
-  }
-}
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'charisma_move',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  acquireTimeout: 60000,
-  timeout: 60000,
 });
 
-// Test de connexion à la base de données
-pool.getConnection()
-  .then(connection => {
-    console.log('Connexion à la base de données établie');
-    connection.release();
-  })
-  .catch(err => {
-    console.error('Erreur de connexion à la base de données:', err);
-  });
+// ── Database ──────────────────────────────────────────────────────────────────
+const db = new Database(path.join(__dirname, 'charisma_move.db'));
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
-async function init() {
-  try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS users (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      first_name VARCHAR(255),
-      gender VARCHAR(10),
-      email VARCHAR(255) NOT NULL UNIQUE,
-      password VARCHAR(255) NOT NULL,
-      phone VARCHAR(20),
-      is_admin BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )`);
-    
-    await pool.query(`CREATE TABLE IF NOT EXISTS items (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
-    await pool.query(`CREATE TABLE IF NOT EXISTS bookings (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT NOT NULL,
-      departure VARCHAR(255),
-      arrival VARCHAR(255),
-      travel_date DATE,
-      travel_time TIME,
-      seats INT,
-      price DECIMAL(10,2),
-      status VARCHAR(20) DEFAULT 'pending',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`);
-    
-    await pool.query(`CREATE TABLE IF NOT EXISTS announcements (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT NOT NULL,
-      departure VARCHAR(255) NOT NULL,
-      destination VARCHAR(255) NOT NULL,
-      datetime DATETIME NOT NULL,
-      seats INT NOT NULL,
-      price DECIMAL(10,2),
-      description TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`);
-
-    // Vérifier et ajouter les colonnes manquantes
-    const columns = [
-      { name: 'is_admin', type: 'BOOLEAN DEFAULT FALSE' },
-      { name: 'phone', type: 'VARCHAR(20)' },
-      { name: 'first_name', type: 'VARCHAR(255)' },
-      { name: 'gender', type: 'VARCHAR(10)' },
-      { name: 'created_at', type: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' },
-      { name: 'updated_at', type: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' }
-    ];
-
-    for (const column of columns) {
-      const [col] = await pool.query(
-        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE()
-           AND TABLE_NAME = 'users'
-           AND COLUMN_NAME = ?`,
-        [column.name]
-      );
-      if (col.length === 0) {
-        await pool.query(`ALTER TABLE users ADD COLUMN ${column.name} ${column.type}`);
-      }
-    }
-
-    // Créer un admin par défaut si aucun n'existe
-    const [rows] = await pool.query('SELECT COUNT(*) as count FROM users WHERE is_admin = TRUE');
-    if (rows[0].count === 0) {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-      const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-      const adminName = process.env.ADMIN_NAME || 'Admin';
-      const adminPhone = process.env.ADMIN_PHONE || null;
-      const hash = await bcrypt.hash(adminPassword, 12);
-      await pool.query(
-        'INSERT INTO users (name, first_name, gender, email, password, phone, is_admin) VALUES (?, ?, ?, ?, ?, ?, TRUE)',
-        [adminName, null, null, adminEmail, hash, adminPhone]
-      );
-      console.log(`Admin par défaut créé avec l'email ${adminEmail}`);
-    }
-  } catch (error) {
-    console.error('Erreur lors de l\'initialisation:', error);
-  }
-}
-
-init();
-
-async function getItems() {
-  const [rows] = await pool.query('SELECT id, name FROM items');
-  return rows;
-}
-
-async function searchItems(query) {
-  const [rows] = await pool.query(
-    'SELECT id, name FROM items WHERE name LIKE ? COLLATE utf8mb4_general_ci',
-    [`%${query}%`]
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    first_name TEXT,
+    gender     TEXT,
+    email      TEXT NOT NULL UNIQUE,
+    password   TEXT NOT NULL,
+    phone      TEXT,
+    is_admin   INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
   );
-  return rows;
-}
 
-async function addItem(name) {
-  const [result] = await pool.query('INSERT INTO items (name) VALUES (?)', [name]);
-  return { id: result.insertId, name };
-}
-
-async function createUser(name, email, password, phone, firstName = null, gender = null, isAdmin = false) {
-  const [result] = await pool.query(
-    'INSERT INTO users (name, first_name, gender, email, password, phone, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [name, firstName, gender, email, password, phone, isAdmin]
+  CREATE TABLE IF NOT EXISTS items (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
   );
-  return { id: result.insertId, name, first_name: firstName, gender, email, phone, is_admin: isAdmin };
-}
 
-async function findUserByEmail(email) {
-  const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-  return rows[0];
-}
-
-async function getUserById(id) {
-  const [rows] = await pool.query(
-    'SELECT id, name, first_name, gender, email, phone, is_admin FROM users WHERE id = ?',
-    [id]
+  CREATE TABLE IF NOT EXISTS bookings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    departure   TEXT,
+    arrival     TEXT,
+    travel_date TEXT,
+    travel_time TEXT,
+    seats       INTEGER,
+    price       REAL DEFAULT 0,
+    status      TEXT DEFAULT 'pending',
+    created_at  TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
-  return rows[0];
-}
 
-async function updateUser(id, fields) {
-  const allowed = ['name', 'first_name', 'gender', 'phone'];
-  const setParts = [];
-  const values = [];
-  for (const key of allowed) {
-    if (fields[key] !== undefined) {
-      setParts.push(`${key} = ?`);
-      values.push(fields[key]);
-    }
-  }
-  if (setParts.length === 0) {
-    return getUserById(id);
-  }
-  values.push(id);
-  await pool.query(`UPDATE users SET ${setParts.join(', ')} WHERE id = ?`, values);
-  return getUserById(id);
-}
-
-async function getAllUsers() {
-  const [rows] = await pool.query(
-    'SELECT id, name, email, phone, is_admin FROM users ORDER BY id ASC'
+  CREATE TABLE IF NOT EXISTS announcements (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    departure   TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    datetime    TEXT NOT NULL,
+    seats       INTEGER NOT NULL,
+    price       REAL,
+    description TEXT,
+    created_at  TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
-  return rows;
+`);
+
+// CREATE TABLE IF NOT EXISTS n'ajoute pas de colonne à une base déjà créée :
+// on rattache les réservations au trajet réservé par une migration explicite.
+if (!db.prepare('PRAGMA table_info(bookings)').all().some(c => c.name === 'announcement_id')) {
+  db.exec('ALTER TABLE bookings ADD COLUMN announcement_id INTEGER REFERENCES announcements(id)');
+  console.log('Migration : bookings.announcement_id ajouté');
 }
 
-async function removeUser(id) {
-  await pool.query('DELETE FROM users WHERE id = ?', [id]);
+// Seed default admin
+const adminCount = db.prepare('SELECT COUNT(*) as c FROM users WHERE is_admin = 1').get();
+if (adminCount.c === 0) {
+  const email    = process.env.ADMIN_EMAIL    || 'admin@example.com';
+  const password = process.env.ADMIN_PASSWORD || 'admin123';
+  const name     = process.env.ADMIN_NAME     || 'Admin';
+  const hash     = bcrypt.hashSync(password, 12);
+  db.prepare('INSERT INTO users (name, email, password, is_admin) VALUES (?, ?, ?, 1)').run(name, email, hash);
+  console.log(`Admin créé: ${email}`);
 }
+console.log('Base de données SQLite prête');
 
-async function createBooking(userId, booking) {
-  const [result] = await pool.query(
-    `INSERT INTO bookings (user_id, departure, arrival, travel_date, travel_time, seats, price, status)
-     VALUES (?, ?, ?, ?, ?, ?, 0, 'pending')`,
-    [
-      userId,
-      booking.departure,
-      booking.arrival,
-      booking.travel_date,
-      booking.travel_time,
-      booking.seats,
-    ]
-  );
-  return { id: result.insertId, ...booking, price: 0, status: 'pending' };
-}
-
-async function getBookingsByUser(userId) {
-  const [rows] = await pool.query(
-    'SELECT id, departure, arrival, travel_date, travel_time, seats, price, status, created_at FROM bookings WHERE user_id = ? ORDER BY created_at DESC',
-    [userId]
-  );
-  return rows;
-}
-
-async function confirmBooking(id) {
-  await pool.query('UPDATE bookings SET status = ? WHERE id = ?', ['confirmed', id]);
-  const [rows] = await pool.query(
-    `SELECT b.*, u.email, u.phone FROM bookings b JOIN users u ON b.user_id = u.id WHERE b.id = ?`,
-    [id]
-  );
-  return rows[0];
-}
-
-async function createAnnouncement(userId, data) {
-  const [result] = await pool.query(
-    `INSERT INTO announcements (user_id, departure, destination, datetime, seats)
-     VALUES (?, ?, ?, ?, ?)`,
-    [userId, data.departure, data.destination, data.datetime, data.seats]
-  );
-  return { id: result.insertId, ...data };
-}
-
-async function getAnnouncements(filters = {}) {
-  let query = 'SELECT * FROM announcements WHERE 1=1';
-  const params = [];
-  if (filters.departure) {
-    query += ' AND LOWER(departure) LIKE ?';
-    params.push('%' + filters.departure.toLowerCase() + '%');
-  }
-  if (filters.destination) {
-    query += ' AND LOWER(destination) LIKE ?';
-    params.push('%' + filters.destination.toLowerCase() + '%');
-  }
-  if (filters.seats) {
-    query += ' AND seats >= ?';
-    params.push(filters.seats);
-  }
-  query += ' ORDER BY datetime ASC';
-  const [rows] = await pool.query(query, params);
-  return rows;
-}
-
-app.get('/api/items', async (req, res) => {
-  try {
-    const { q } = req.query;
-    const rows = q ? await searchItems(q) : await getItems();
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-app.post('/api/items', async (req, res) => {
-  try {
-    const item = await addItem(req.body.name);
-    res.status(201).json(item);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-app.post('/api/bookings', authenticateToken, async (req, res) => {
-  try {
-    const booking = await createBooking(req.user.id, req.body);
-    res.status(201).json(booking);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-app.get('/api/bookings', authenticateToken, async (req, res) => {
-  try {
-    const bookings = await getBookingsByUser(req.user.id);
-    res.json(bookings);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-app.post('/api/bookings/:id/confirm', authenticateToken, async (req, res) => {
-  try {
-    const booking = await confirmBooking(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Not found' });
-    if (booking.email) {
-      await sendEmail(
-        booking.email,
-        'Confirmation de réservation',
-        `Votre réservation du ${booking.travel_date} est confirmée.`
-      );
-    }
-    if (booking.phone) {
-      await sendSMS(
-        booking.phone,
-        `Réservation confirmée pour le ${booking.travel_date}`
-      );
-    }
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-app.post('/api/announcements', authenticateToken, async (req, res) => {
-  const { departure, destination, datetime, seats } = req.body;
-  if (!departure || !destination || !datetime || !seats) {
-    return res.status(400).json({ error: 'Missing fields' });
-  }
-  try {
-    const ann = await createAnnouncement(req.user.id, {
-      departure,
-      destination,
-      datetime,
-      seats,
-    });
-    res.status(201).json(ann);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-app.get('/api/announcements', async (req, res) => {
-  try {
-    const anns = await getAnnouncements({
-      departure: req.query.departure,
-      destination: req.query.destination,
-      seats: req.query.seats ? parseInt(req.query.seats, 10) : undefined,
-    });
-    res.json(anns);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
+// ── Auth middleware ───────────────────────────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = req.headers['authorization']?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid token' });
     req.user = user;
     next();
@@ -444,395 +102,254 @@ function authenticateToken(req, res, next) {
 }
 
 function authenticateAdmin(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = req.headers['authorization']?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
-    if (err || !user.is_admin) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err || !user.is_admin) return res.status(403).json({ error: 'Forbidden' });
     req.user = user;
     next();
   });
 }
 
+// ── Items ─────────────────────────────────────────────────────────────────────
+app.get('/api/items', (req, res) => {
+  const { q } = req.query;
+  const rows = q
+    ? db.prepare('SELECT id, name FROM items WHERE LOWER(name) LIKE ?').all(`%${q.toLowerCase()}%`)
+    : db.prepare('SELECT id, name FROM items').all();
+  res.json(rows);
+});
+
+app.post('/api/items', (req, res) => {
+  const result = db.prepare('INSERT INTO items (name) VALUES (?)').run(req.body.name);
+  res.status(201).json({ id: result.lastInsertRowid, name: req.body.name });
+});
+
+// ── User auth ─────────────────────────────────────────────────────────────────
 app.post('/api/users/register', async (req, res) => {
   const { name, first_name, gender, email, password, phone } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Missing fields' });
+  if (!name || !email || !password) return res.status(400).json({ error: 'Missing fields' });
+  if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) {
+    return res.status(409).json({ error: 'Email already in use' });
   }
-  try {
-    const existing = await findUserByEmail(email);
-    if (existing) {
-      return res.status(409).json({ error: 'Email already in use' });
-    }
-    const hash = await bcrypt.hash(password, 10);
-    const user = await createUser(name, email, hash, phone, first_name, gender);
-    res.status(201).json(user);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
+  const hash   = await bcrypt.hash(password, 10);
+  const result = db.prepare(
+    'INSERT INTO users (name, first_name, gender, email, password, phone) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(name, first_name || null, gender || null, email, hash, phone || null);
+  res.status(201).json({ id: result.lastInsertRowid, name, first_name, gender, email, phone, is_admin: false });
 });
 
-app.post('/api/users/login', async (req, res) => {
+app.post(['/api/users/login', '/api/auth/login'], async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Missing fields' });
+  if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    return res.status(401).json({ error: 'Invalid credentials' });
   }
-  try {
-    const user = await findUserByEmail(email);
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign(
-      { id: user.id, is_admin: user.is_admin },
-      process.env.JWT_SECRET || 'secret',
-      {
-        expiresIn: '1h',
-      }
-    );
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        first_name: user.first_name,
-        gender: user.gender,
-        email: user.email,
-        phone: user.phone,
-        is_admin: user.is_admin,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
+  const token = jwt.sign({ id: user.id, is_admin: !!user.is_admin }, JWT_SECRET, { expiresIn: '1h' });
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, first_name: user.first_name, gender: user.gender, email: user.email, phone: user.phone, is_admin: !!user.is_admin },
+  });
 });
 
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+  const user = db.prepare('SELECT id, name, first_name, gender, email, phone, is_admin FROM users WHERE id = ?').get(req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ user });
+});
+
+app.get('/api/users/:id', authenticateToken, (req, res) => {
+  if (parseInt(req.params.id) !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  const user = db.prepare('SELECT id, name, first_name, gender, email, phone, is_admin FROM users WHERE id = ?').get(req.user.id);
+  res.json(user || {});
+});
+
+app.put('/api/users/:id', authenticateToken, (req, res) => {
+  if (parseInt(req.params.id) !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  const { name, first_name, gender, phone } = req.body;
+  db.prepare('UPDATE users SET name = COALESCE(?, name), first_name = COALESCE(?, first_name), gender = COALESCE(?, gender), phone = COALESCE(?, phone) WHERE id = ?')
+    .run(name, first_name, gender, phone, req.user.id);
+  const user = db.prepare('SELECT id, name, first_name, gender, email, phone, is_admin FROM users WHERE id = ?').get(req.user.id);
+  res.json(user);
+});
+
+// ── Admin: login ──────────────────────────────────────────────────────────────
 app.post('/api/admin/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Missing fields' });
+  if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+  const user = db.prepare('SELECT * FROM users WHERE email = ? AND is_admin = 1').get(email);
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    return res.status(401).json({ error: 'Invalid credentials' });
   }
-  try {
-    const user = await findUserByEmail(email);
-    if (!user || !user.is_admin) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign(
-      { id: user.id, is_admin: true },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '1h' }
-    );
-    res.json({
-      token,
-      admin: { id: user.id, name: user.name, email: user.email },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
+  const token = jwt.sign({ id: user.id, is_admin: true }, JWT_SECRET, { expiresIn: '8h' });
+  res.json({ token, admin: { id: user.id, name: user.name, email: user.email } });
 });
 
-app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
-  try {
-    const users = await getAllUsers();
-    res.json(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
+// ── Admin: users ──────────────────────────────────────────────────────────────
+app.get('/api/admin/users', authenticateAdmin, (req, res) => {
+  res.json(db.prepare('SELECT id, name, first_name, email, phone, is_admin FROM users ORDER BY id ASC').all());
 });
 
-app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
-  try {
-    await removeUser(req.params.id);
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
+app.post('/api/admin/users', authenticateAdmin, async (req, res) => {
+  const { name, email, password, phone } = req.body;
+  if (!name || !email || !password) return res.status(400).json({ error: 'Missing fields' });
+  if (password.length < 8) return res.status(400).json({ error: 'Password too short' });
+  if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) {
+    return res.status(409).json({ error: 'Email already in use' });
   }
+  const hash = await bcrypt.hash(password, 12);
+  let result;
+  try {
+    result = db.prepare(
+      'INSERT INTO users (name, email, password, phone, is_admin) VALUES (?, ?, ?, ?, 1)'
+    ).run(name, email, hash, phone || null);
+  } catch (e) {
+    // email est UNIQUE : rattrape la collision entre le pré-contrôle et l'insertion
+    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'Email already in use' });
+    throw e;
+  }
+  res.status(201).json({ id: result.lastInsertRowid, name, email, phone: phone || null, is_admin: true });
 });
 
-app.get('/api/users/:id', authenticateToken, async (req, res) => {
-  try {
-    if (parseInt(req.params.id, 10) !== req.user.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const user = await getUserById(req.user.id);
-    res.json(user);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
+app.delete('/api/admin/users/:id', authenticateAdmin, (req, res) => {
+  db.prepare('DELETE FROM users WHERE id = ? AND is_admin = 0').run(req.params.id);
+  res.json({ success: true });
 });
 
-app.put('/api/users/:id', authenticateToken, async (req, res) => {
-  try {
-    if (parseInt(req.params.id, 10) !== req.user.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const updated = await updateUser(req.user.id, req.body);
-    res.json(updated);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
+// ── Admin: stats ──────────────────────────────────────────────────────────────
+app.get('/api/admin/stats', authenticateAdmin, (req, res) => {
+  const total_users    = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
+  const total_trips    = db.prepare('SELECT COUNT(*) as c FROM announcements').get().c;
+  const total_bookings = db.prepare('SELECT COUNT(*) as c FROM bookings').get().c;
+  const active_trips   = db.prepare("SELECT COUNT(*) as c FROM announcements WHERE datetime > datetime('now')").get().c;
+  res.json({ total_users, total_trips, total_bookings, active_trips });
 });
 
-const options = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'CharismaMove API',
-      version: '1.0.0',
+// ── Admin: announcements ──────────────────────────────────────────────────────
+app.get('/api/admin/announcements', authenticateAdmin, (req, res) => {
+  res.json(db.prepare(`
+    SELECT a.*, u.name as driver_name, u.email as driver_email
+    FROM announcements a JOIN users u ON a.user_id = u.id
+    ORDER BY a.datetime DESC
+  `).all());
+});
+
+app.delete('/api/admin/announcements/:id', authenticateAdmin, (req, res) => {
+  db.prepare('DELETE FROM announcements WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ── Admin: bookings ───────────────────────────────────────────────────────────
+app.get('/api/admin/bookings', authenticateAdmin, (req, res) => {
+  res.json(db.prepare(`
+    SELECT b.*, u.name as user_name, u.email as user_email
+    FROM bookings b JOIN users u ON b.user_id = u.id
+    ORDER BY b.created_at DESC
+  `).all());
+});
+
+// ── Announcements ─────────────────────────────────────────────────────────────
+app.post('/api/announcements', authenticateToken, (req, res) => {
+  const { departure, destination, datetime, seats } = req.body;
+  if (!departure || !destination || !datetime || !seats) return res.status(400).json({ error: 'Missing fields' });
+  const result = db.prepare(
+    'INSERT INTO announcements (user_id, departure, destination, datetime, seats) VALUES (?, ?, ?, ?, ?)'
+  ).run(req.user.id, departure, destination, datetime, seats);
+  res.status(201).json({ id: result.lastInsertRowid, departure, destination, datetime, seats });
+});
+
+app.get('/api/announcements', (req, res) => {
+  // route publique : on expose le nom du conducteur, jamais son email ni son user_id
+  let query = `
+    SELECT a.id, a.departure, a.destination, a.datetime, a.seats, a.price, a.description, u.name AS driver_name
+    FROM announcements a JOIN users u ON a.user_id = u.id
+    WHERE 1=1`;
+  const params = [];
+  if (req.query.departure)   { query += ' AND LOWER(a.departure) LIKE ?';   params.push(`%${req.query.departure.toLowerCase()}%`); }
+  if (req.query.destination) { query += ' AND LOWER(a.destination) LIKE ?'; params.push(`%${req.query.destination.toLowerCase()}%`); }
+  if (req.query.seats)       { query += ' AND a.seats >= ?';                params.push(parseInt(req.query.seats)); }
+  if (req.query.date)        { query += ' AND date(a.datetime) = ?';        params.push(req.query.date); }
+  query += ' ORDER BY a.datetime ASC';
+  res.json(db.prepare(query).all(...params));
+});
+
+// ── Bookings ──────────────────────────────────────────────────────────────────
+// Réserver décrémente les places restantes du trajet. Les colonnes à plat
+// (departure/arrival/travel_date/travel_time) sont dérivées du trajet et non
+// envoyées par le client : MyBookingsPage et l'admin les lisent encore.
+const bookSeats = db.transaction((userId, announcementId, seats) => {
+  const trip = db.prepare('SELECT * FROM announcements WHERE id = ?').get(announcementId);
+  if (!trip) return { error: 'Trip not found', status: 404 };
+  if (seats > trip.seats) return { error: 'Not enough seats', status: 409, available: trip.seats };
+
+  const [travel_date, travel_time] = String(trip.datetime).split('T');
+  db.prepare('UPDATE announcements SET seats = seats - ? WHERE id = ?').run(seats, announcementId);
+  const result = db.prepare(
+    'INSERT INTO bookings (user_id, announcement_id, departure, arrival, travel_date, travel_time, seats, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(userId, announcementId, trip.departure, trip.destination, travel_date, travel_time || null, seats, trip.price || 0);
+
+  return {
+    booking: {
+      id: result.lastInsertRowid,
+      announcement_id: announcementId,
+      departure: trip.departure,
+      arrival: trip.destination,
+      travel_date,
+      travel_time: travel_time || null,
+      seats,
+      price: trip.price || 0,
+      status: 'pending',
     },
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-        },
-      },
-    },
-  },
-  apis: ['./index.js'],
-};
-const specs = swaggerJsdoc(options);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+    seats_left: trip.seats - seats,
+  };
+});
 
-/**
- * @swagger
- * /api/items:
- *   get:
- *     summary: List items
- *     parameters:
- *       - in: query
- *         name: q
- *         required: false
- *         schema:
- *           type: string
- *         description: Filter items by name
- *     responses:
- *       200:
- *         description: Array of items
- *   post:
- *     summary: Create an item
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *     responses:
- *       201:
- *         description: Item created
- */
+app.post('/api/bookings', authenticateToken, (req, res) => {
+  const announcement_id = parseInt(req.body.announcement_id);
+  const seats = parseInt(req.body.seats);
+  if (!announcement_id) return res.status(400).json({ error: 'Missing announcement_id' });
+  if (!seats || seats < 1) return res.status(400).json({ error: 'Invalid seats' });
 
-/**
- * @swagger
- * /api/bookings:
- *   post:
- *     summary: Create a booking
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               departure:
- *                 type: string
- *               arrival:
- *                 type: string
- *               travel_date:
- *                 type: string
- *               travel_time:
- *                 type: string
- *               seats:
- *                 type: integer
- *     responses:
- *       201:
- *         description: Booking created
- *   get:
- *     summary: List user bookings
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Array of bookings
- * /api/bookings/{id}/confirm:
- *   post:
- *     summary: Confirm a booking
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Booking confirmed
- */
+  const out = bookSeats(req.user.id, announcement_id, seats);
+  if (out.error) return res.status(out.status).json({ error: out.error, available: out.available });
+  res.status(201).json({ ...out.booking, seats_left: out.seats_left });
+});
 
-/**
- * @swagger
- * /api/announcements:
- *   post:
- *     summary: Publish a new trip announcement
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               departure:
- *                 type: string
- *               destination:
- *                 type: string
- *               datetime:
- *                 type: string
- *               seats:
- *                 type: integer
- *     responses:
- *       201:
- *         description: Announcement created
- *   get:
- *     summary: List published trips
- *     parameters:
- *       - in: query
- *         name: departure
- *         required: false
- *         schema:
- *           type: string
- *       - in: query
- *         name: destination
- *         required: false
- *         schema:
- *           type: string
- *       - in: query
- *         name: seats
- *         required: false
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Array of announcements
- */
+app.get('/api/bookings', authenticateToken, (req, res) => {
+  res.json(db.prepare(
+    'SELECT id, departure, arrival, travel_date, travel_time, seats, price, status, created_at FROM bookings WHERE user_id = ? ORDER BY created_at DESC'
+  ).all(req.user.id));
+});
 
-/**
- * @swagger
- * /api/users/register:
- *   post:
- *     summary: Register a new user
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *               phone:
- *                 type: string
- *     responses:
- *       201:
- *         description: User created
- *       409:
- *         description: Email already in use
- *
- * /api/users/login:
- *   post:
- *     summary: Login a user
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Authenticated user with token
- *       401:
- *         description: Invalid credentials
- */
+// Ne touche pas aux places : elles sont déjà déduites à la création de la réservation.
+// L'admin confirme n'importe quelle réservation (AdminBookings), un utilisateur
+// seulement les siennes.
+app.post('/api/bookings/:id/confirm', authenticateToken, (req, res) => {
+  const result = req.user.is_admin
+    ? db.prepare("UPDATE bookings SET status = 'confirmed' WHERE id = ?").run(req.params.id)
+    : db.prepare("UPDATE bookings SET status = 'confirmed' WHERE id = ? AND user_id = ?").run(req.params.id, req.user.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Booking not found' });
+  res.json({ success: true });
+});
 
-/**
- * @swagger
- * /api/users/{id}:
- *   get:
- *     summary: Get user profile
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: User profile
- *       401:
- *         description: Unauthorized
- */
+// Annuler rend les places au trajet, sinon elles seraient perdues définitivement.
+const cancelBooking = db.transaction((bookingId, userId) => {
+  const booking = db.prepare('SELECT * FROM bookings WHERE id = ? AND user_id = ?').get(bookingId, userId);
+  if (!booking) return { deleted: false };
+  db.prepare('DELETE FROM bookings WHERE id = ?').run(bookingId);
+  if (booking.announcement_id) {
+    db.prepare('UPDATE announcements SET seats = seats + ? WHERE id = ?').run(booking.seats, booking.announcement_id);
+  }
+  return { deleted: true };
+});
 
-/**
- * @swagger
- * /api/users/{id}:
- *   put:
- *     summary: Update user profile
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               first_name:
- *                 type: string
- *               phone:
- *                 type: string
- *               gender:
- *                 type: string
- *     responses:
- *       200:
- *         description: Updated user profile
- */
+app.delete('/api/bookings/:id', authenticateToken, (req, res) => {
+  const { deleted } = cancelBooking(parseInt(req.params.id), req.user.id);
+  if (!deleted) return res.status(404).json({ error: 'Booking not found' });
+  res.json({ success: true });
+});
 
+// ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));

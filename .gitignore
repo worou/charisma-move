@@ -97,6 +97,9 @@ temp/
 # Database files
 *.sqlite
 *.db
+# fichiers annexes du mode WAL de SQLite (non couverts par *.db)
+*.db-shm
+*.db-wal
 
 # Backup files
 *.bak
