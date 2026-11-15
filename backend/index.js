@@ -69,6 +69,8 @@ const nowLocalMinute = () => {
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+// Durée de session des voyageurs : 7 jours par défaut (JWT_EXPIRES_IN). L'admin garde sa propre durée (8h).
+const USER_TOKEN_TTL = process.env.JWT_EXPIRES_IN || '7d';
 
 function authenticateToken(req, res, next) {
   const token = req.headers['authorization']?.split(' ')[1];
@@ -126,7 +128,7 @@ app.post(['/api/users/login', '/api/auth/login'], async (req, res) => {
   if (!user || !(await bcrypt.compare(password, user.password))) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
-  const token = jwt.sign({ id: user.id, is_admin: !!user.is_admin }, JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ id: user.id, is_admin: !!user.is_admin }, JWT_SECRET, { expiresIn: USER_TOKEN_TTL });
   res.json({
     token,
     user: {
@@ -242,7 +244,7 @@ app.get('/api/auth/:provider/callback', async (req, res, next) => {
       const result = await db.run('INSERT INTO users (name, first_name, email, password) VALUES (?, ?, ?, ?)', profile.name, profile.first_name, profile.email, hash);
       user = await db.get('SELECT * FROM users WHERE id = ?', result.lastInsertRowid);
     }
-    const token = jwt.sign({ id: user.id, is_admin: !!user.is_admin }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user.id, is_admin: !!user.is_admin }, JWT_SECRET, { expiresIn: USER_TOKEN_TTL });
     // Fragment (#) : le jeton n'est envoyé à aucun serveur ni journalisé
     res.redirect(`${FRONTEND_URL}/#oauth_token=${token}`);
   } catch (err) {

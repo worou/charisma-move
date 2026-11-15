@@ -65,6 +65,13 @@ export const AppProvider = ({ children }) => {
     setSearchParams(null);
   }, [setToken]);
 
+  // Déclenché par apiBase.js quand le serveur refuse le jeton (expiré ou invalide)
+  useEffect(() => {
+    const onExpired = () => logout();
+    window.addEventListener('session-expired', onExpired);
+    return () => window.removeEventListener('session-expired', onExpired);
+  }, [logout]);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
