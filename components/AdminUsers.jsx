@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Trash2, Shield, User, Plus, X } from 'lucide-react';
+import { Search, Trash2, Shield, User, Plus, X, Bus } from 'lucide-react';
 import { useAdmin } from './AdminContext.jsx';
 
 const emptyForm = { name: '', email: '', phone: '', password: '' };
 
+const ROLES = [
+  { key: 'is_driver', label: 'Chauffeur', icon: Bus,    on: 'bg-teal-100 text-teal-700' },
+  { key: 'is_admin',  label: 'Admin',     icon: Shield, on: 'bg-purple-100 text-purple-700' },
+];
+
 const AdminUsers = () => {
-  const { token } = useAdmin();
+  const { token, adminUser } = useAdmin();
   const [users, setUsers]     = useState([]);
   const [search, setSearch]   = useState('');
   const [loading, setLoading] = useState(true);
@@ -30,6 +35,20 @@ const AdminUsers = () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  // Active ou retire un rôle (chauffeur ou administrateur) via PUT /api/admin/users/:id/roles
+  const toggleRole = async (user, key) => {
+    const next = !user[key];
+    if (key === 'is_admin' && !next && !confirm(`Retirer les droits administrateur de ${user.name} ?`)) return;
+    const res = await fetch(`/api/admin/users/${user.id}/roles`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: next }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return alert(data.error || 'Modification impossible');
+    setUsers(prev => prev.map(u => (u.id === user.id ? { ...u, [key]: next ? 1 : 0 } : u)));
   };
 
   const openForm = () => { setForm(emptyForm); setFormError(null); setShowForm(true); };
@@ -217,15 +236,31 @@ const AdminUsers = () => {
                   <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{user.phone || '—'}</td>
                   <td className="px-6 py-4">
-                    {user.is_admin ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                        <Shield className="w-3 h-3" /> Admin
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                        <User className="w-3 h-3" /> Utilisateur
-                      </span>
-                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {ROLES.map(r => {
+                        const active = !!user[r.key];
+                        const Icon = r.icon;
+                        const isSelf = r.key === 'is_admin' && user.id === adminUser?.id;
+                        return (
+                          <button
+                            key={r.key}
+                            type="button"
+                            onClick={() => toggleRole(user, r.key)}
+                            disabled={isSelf}
+                            title={
+                              isSelf ? 'Vous ne pouvez pas retirer vos propres droits'
+                              : active ? `Retirer le rôle ${r.label}`
+                              : `Donner le rôle ${r.label}`
+                            }
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                              active ? `${r.on} border-transparent` : 'bg-white text-gray-500 border-gray-300 hover:border-gray-400'
+                            }`}
+                          >
+                            <Icon className="w-3 h-3" /> {active ? r.label : `+ ${r.label}`}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     {!user.is_admin && (

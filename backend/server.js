@@ -108,8 +108,8 @@ app.post('/api/items', async (req, res) => {
 });
 
 // ── User auth ─────────────────────────────────────────────────────────────────
-// Un compte est chauffeur dès que l'admin lui attribue au moins une ligne de bus
-const isDriver = async (userId) => !!(await db.get('SELECT 1 FROM bus_line_drivers WHERE user_id = ? LIMIT 1', userId));
+// Rôle chauffeur attribué par l'administrateur (users.is_driver)
+const isDriver = async (userId) => !!(await db.get('SELECT is_driver FROM users WHERE id = ?', userId))?.is_driver;
 
 app.post('/api/users/register', async (req, res) => {
   const { name, first_name, gender, email, password, phone } = req.body;
@@ -282,7 +282,24 @@ app.post('/api/admin/login', async (req, res) => {
 
 // ── Admin: users ──────────────────────────────────────────────────────────────
 app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
-  res.json(await db.all('SELECT id, name, first_name, email, phone, is_admin FROM users ORDER BY id ASC'));
+  res.json(await db.all('SELECT id, name, first_name, email, phone, is_admin, is_driver FROM users ORDER BY id ASC'));
+});
+
+// Rôles d'un utilisateur : chauffeur et/ou administrateur (les deux champs sont facultatifs)
+app.put('/api/admin/users/:id/roles', authenticateAdmin, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { is_driver, is_admin } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'Utilisateur invalide' });
+  if (typeof is_driver !== 'boolean' && typeof is_admin !== 'boolean') {
+    return res.status(400).json({ error: 'Aucun rôle à modifier' });
+  }
+  if (is_admin === false && id === req.user.id) {
+    return res.status(400).json({ error: 'Vous ne pouvez pas retirer vos propres droits administrateur' });
+  }
+  if (!await db.get('SELECT id FROM users WHERE id = ?', id)) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  if (typeof is_driver === 'boolean') await db.run('UPDATE users SET is_driver = ? WHERE id = ?', is_driver ? 1 : 0, id);
+  if (typeof is_admin === 'boolean') await db.run('UPDATE users SET is_admin = ? WHERE id = ?', is_admin ? 1 : 0, id);
+  res.json({ success: true });
 });
 
 app.post('/api/admin/users', authenticateAdmin, async (req, res) => {

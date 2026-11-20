@@ -111,6 +111,8 @@ const COLUMNS = [
   ['bus_bookings', 'ticket_code', 'VARCHAR(32) UNIQUE AFTER seats'],
   ['bus_bookings', 'validated_at', 'TIMESTAMP NULL AFTER ticket_code'],
   ['bus_bookings', 'validated_by', 'INT NULL AFTER validated_at'],
+  // Rôle chauffeur, attribué par l'administrateur (menu Chauffeur, validation des billets)
+  ['users', 'is_driver', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER is_admin'],
 ];
 
 async function initSchema(db) {
@@ -121,6 +123,8 @@ async function initSchema(db) {
       table, column);
     if (!exists) await db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
+  // Les chauffeurs déjà rattachés à une ligne reçoivent le rôle (une seule fois, idempotent)
+  await db.run('UPDATE users SET is_driver = 1 WHERE is_driver = 0 AND id IN (SELECT user_id FROM bus_line_drivers)');
 }
 
 module.exports = { initSchema, TABLE_ORDER };
