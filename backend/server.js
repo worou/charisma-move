@@ -722,10 +722,13 @@ const isLineDriver = async (lineId, userId) =>
 app.get('/api/driver/lines/:id/passengers', authenticateToken, async (req, res) => {
   if (!await isLineDriver(req.params.id, req.user.id)) return res.status(403).json({ error: 'Cette ligne ne vous est pas attribuée' });
   res.json(await db.all(`
-    SELECT b.id, b.seats, b.validated_at, u.name AS user_name, u.first_name AS user_first_name
-    FROM bus_bookings b JOIN users u ON b.user_id = u.id
+    SELECT b.id, b.seats, b.validated_at, u.name AS user_name, u.first_name AS user_first_name,
+           d.name AS validator_name, d.first_name AS validator_first_name
+    FROM bus_bookings b
+    JOIN users u ON b.user_id = u.id
+    LEFT JOIN users d ON b.validated_by = d.id
     WHERE b.line_id = ? AND b.service_date = ?
-    ORDER BY u.name, u.first_name`, req.params.id, todayLocal()));
+    ORDER BY b.validated_at IS NULL, b.validated_at DESC, u.name, u.first_name`, req.params.id, todayLocal()));
 });
 
 // Scan du QR code à la montée : billet du jour, sur une ligne du chauffeur, validable une seule fois

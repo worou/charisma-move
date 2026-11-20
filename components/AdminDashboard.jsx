@@ -32,10 +32,12 @@ const bookingStatus = (b, today) => {
   return { label: 'À venir', cls: 'bg-blue-100 text-blue-700' };
 };
 
-const formatTimeUTC = (ts) => {
+const formatScanUTC = (ts) => {
   // MySQL renvoie « AAAA-MM-JJ HH:MM:SS » en UTC (fuseau Z configuré côté serveur)
   const d = new Date(String(ts).replace(' ', 'T') + 'Z');
-  return isNaN(d) ? '' : d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return isNaN(d) ? '' : d.toLocaleString('fr-FR', {
+    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
 };
 
 const BusBookingsTable = ({ bookings, today }) => {
@@ -98,7 +100,7 @@ const BusBookingsTable = ({ bookings, today }) => {
                         {st.label}
                       </span>
                       {b.validated_at && (
-                        <span className="ml-2 text-xs text-gray-500">à {formatTimeUTC(b.validated_at)}</span>
+                        <span className="ml-2 text-xs text-gray-500">scanné le {formatScanUTC(b.validated_at)}</span>
                       )}
                     </td>
                   </tr>

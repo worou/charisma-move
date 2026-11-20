@@ -12,6 +12,12 @@ const formatDate = (iso) =>
 const formatTime = (ts) =>
   new Date(`${ts.replace(' ', 'T')}Z`).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+// Date et heure d'un scan, en heure locale (ex. « jeudi 20 nov. à 10:32 »)
+const formatScanDateTime = (ts) =>
+  new Date(`${ts.replace(' ', 'T')}Z`).toLocaleString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+
 const fullName = (t) => [t.user_first_name, t.user_name].filter(Boolean).join(' ');
 
 const cameraError = (err) => {
@@ -317,7 +323,11 @@ export default function DriverPage() {
                   </span>
                   {p.validated_at ? (
                     <span className="flex items-center gap-1 text-xs font-medium text-green-700">
-                      <CheckCircle2 className="w-4 h-4" /> Monté à {formatTime(p.validated_at)}
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>
+                        Scanné le {formatScanDateTime(p.validated_at)}
+                        {p.validator_name && <span className="text-gray-500 font-normal"> · par {[p.validator_first_name, p.validator_name].filter(Boolean).join(' ')}</span>}
+                      </span>
                     </span>
                   ) : (
                     <span className="text-xs font-medium text-gray-400">En attente</span>
